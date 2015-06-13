@@ -2751,22 +2751,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             ax.derefAnchors();
             nA = numel(ax.anchorInfoDeref);
-            
-            % first loop through and build a matrix of direct handle
-            % dependendencies to speed things up. 
-            [hCat, hWhich] = TensorUtils.catWhich(1, ax.anchorInfoDeref.h);
-            [haCat, haWhich] = TensorUtils.catWhich(1, ax.anchorInfoDeref.ha);
-                
-            % now build matrix hDepMat(i, j) = true if anchorInfo i uses as an
-            % anchor a handle that is positioned/resized by anchorInfo j,
-            % such that i may depend on j
-            hDepMat = false(nA, nA);
-            for iH = 1:numel(hCat)    
-                hDepMat(haWhich(haCat == hCat(iH)), hWhich(iH)) = true;
-            end
-            
+               
             % gather info about each anchor once up front to save time
-            [specifiesSize, isX, isHandleH, isHandleHa] = nanvec(nA);
+            [specifiesSize, isX] = nanvec(nA);
+            [isHandleH, isHandleHa] = falsevec(nA);
             posSpecified(nA) = PositionType.Top;
             posSpecified = posSpecified';
             for iA = 1:nA
@@ -2776,6 +2764,21 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 isHandleH(iA) = a.isHandleH;
                 isHandleHa(iA) = a.isHandleHa;
                 posSpecified(iA) = a.pos;
+            end
+            
+            % first loop through and build a matrix of direct handle
+            % dependendencies to speed things up. 
+            [hCat, hWhichPartial] = TensorUtils.catWhichIgnoreEmpty(1, ax.anchorInfoDeref(isHandleH).h);
+            hWhich = TensorUtils.indicesIntoMaskToOriginalIndices(hWhichPartial, isHandleH);
+            [haCat, haWhichPartial] = TensorUtils.catWhichIgnoreEmpty(1, ax.anchorInfoDeref(isHandleHa).ha);
+            haWhich = TensorUtils.indicesIntoMaskToOriginalIndices(haWhichPartial, isHandleHa);
+                
+            % now build matrix hDepMat(i, j) = true if anchorInfo i uses as an
+            % anchor a handle that is positioned/resized by anchorInfo j,
+            % such that i may depend on j
+            hDepMat = false(nA, nA);
+            for iH = 1:numel(hCat)    
+                hDepMat(haWhich(haCat == hCat(iH)), hWhich(iH)) = true;
             end
             
             % now loop through and build a list of actually realized dependencies,
