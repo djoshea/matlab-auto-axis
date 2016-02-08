@@ -51,7 +51,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         % ticks and tick labels
         tickColor = [0 0 0];
-        tickLength = 0.05; % 0.15
+        tickLength = 0.1; % 0.15
         tickLineWidth = 0.5; % not in centimeters, this is stroke width
         tickFontColor
         tickFontSize
@@ -98,7 +98,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         % gap between axis limits (Position) and OuterPosition of axes
         % only used when axis is not managed by panel
 %         axisMargin = [2.5 2.5 1.5 1.5]; % [left bottom right top] 
-        axisMargin = [1.5 1.0 0.75 0.75]; % [left bottom right top] 
+        axisMargin = [2 1.5 0.75 0.75]; % [left bottom right top] 
         % left: room for y-axis
         % bottom: room for x-axis
         % right: room for y-scale bar and label
@@ -856,6 +856,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             function new = updateHVec(old, oldH, newH)
                 new = old;
+                if ~ishandle(old)
+                    return;
+                end
                 for iOld = 1:numel(old)
                     [tf, idx] = ismember(old(iOld), oldH);
                     if tf
@@ -1880,7 +1883,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     else
                         ticks = get(ax.axh, 'YTick');
                     end
-                    len = ticks(end) - ticks(end-1);
+                    if isempty(ticks)
+                        xl = get(ax.axh, 'XLim');
+                        len = floor(xl/5);
+                    else
+                        len = ticks(end) - ticks(end-1);
+                    end
                 end
             end
             units = p.Results.units;
@@ -2172,7 +2180,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addRequired('orientation', @ischar);
             p.addParameter('span', [], @ismatrix); % 2 X N matrix of [ start; stop ] limits
             p.addParameter('label', {}, @(x) isempty(x) || ischar(x) || iscell(x));
-            p.addParameter('color', {}, @(x) ischar(x) || iscell(x) || ismatrix(x));
+            p.addParameter('color', [0 0 0], @(x) ischar(x) || iscell(x) || ismatrix(x));
             p.addParameter('leaveInPlace', false, @islogical);
             p.addParameter('manualPos', 0, @isscalar); % position to place along non-orientation axis, when leaveInPlace is true
             p.CaseSensitive = false;
@@ -2225,11 +2233,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             hl = line(xvals, yvals, 'LineWidth', lineWidth, 'Parent', ax.axhDraw);
+            if iscell(color)
+                nc = numel(color);
+            else
+                nc = size(color, 1);
+            end
+            wrap = @(i) mod(i-1, nc) + 1;
             for i = 1:nSpan
                 if iscell(color)
-                    set(hl(i), 'Color', color{i});
+                    set(hl(i), 'Color', color{wrap(i)});
                 else
-                    set(hl(i), 'Color', color(i, :));
+                    set(hl(i), 'Color', color(wrap(i), :));
                 end
             end
             AutoAxis.hideInLegend(hl);
@@ -2245,9 +2259,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
                     'Parent', ax.axhDraw);
                 if iscell(color)
-                    set(ht(i), 'Color', color{i});
+                    set(ht(i), 'Color', color{wrap(i)});
                 else
-                    set(ht(i), 'Color', color(i, :));
+                    set(ht(i), 'Color', color(wrap(i), :));
                 end
             end
             ht = ht(keep);
