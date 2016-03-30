@@ -283,9 +283,9 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             ydata = (ydata - (hi+lo)/2) + value;
 
                         case PositionType.Height
-                            lo = nanmin(ydata); hi = nanmax(ydata);
+                            lo = nanmin(ydata); hi = nanmax(ydata); mid = (lo+hi) / 2;
                             if hi - lo < eps, return, end
-                            ydata = (ydata - lo) / (hi - lo + markerSizeY) * value + lo;
+                            ydata = (ydata - mid) / (hi - lo + markerSizeY) * value + mid;
 
                         case PositionType.Left
                             if xReverse
@@ -306,9 +306,9 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             xdata = (xdata - (hi+lo)/2) + value;
 
                         case PositionType.Width
-                            lo = nanmin(xdata); hi = nanmax(xdata);
+                            lo = nanmin(xdata); hi = nanmax(xdata); mid = (lo+hi)/2;
                             if hi - lo < eps, return, end
-                            xdata = (xdata - lo) / (hi - lo + markerSizeX) * value + lo;
+                            xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
                             
                         case PositionType.MarkerDiameter
                             markerSize = markerDiameterPoints;
@@ -321,7 +321,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             setMarkerSize = true;
                     end
 
-                    set(h, 'XData', xdata, 'YData', ydata);
+                    set(h, 'XData', xdata, 'YData', ydata); %#ok<*PROPLC>
                     if setMarkerSize && markerSize > 0
                         set(h, 'MarkerSize', markerSize);
                     end
@@ -431,6 +431,8 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             p(2) = value - p(4)/2;
                             
                         case PositionType.Height
+                            % maintain vertical center
+                            p(2) = (p(2) + p(4) / 2) - value/2;
                             p(4) = value;
                             
                         case PositionType.Right
@@ -449,11 +451,14 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             p(1) = value - p(3)/2;
                             
                         case PositionType.Width
+                            % maintain horizontal center
+                            p(1) = (p(1) + p(3)/2) - value/2;
                             p(3) = value;
                             
                     end
 
                     set(h, 'Position', p);
+                    h.Clipping = 'off';
                     if yReverse
                         loc.top = p(2);
                         loc.bottom = p(2) + p(4);

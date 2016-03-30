@@ -31,8 +31,8 @@ au = AutoAxis();
 ylabel('Y Label');
 title('Plot Title');
 
-%au.addAutoAxisY();
-%au.addTicklessLabels('y', 'tick', -5:5);
+au.addAutoAxisY();
+% au.addTicklessLabels('y', 'tick', -5:5);
 %au.addTitle();
 
 au.xUnits = 'ms';
