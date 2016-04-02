@@ -57,13 +57,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         tickFontSize
         
         % size of marker diameter
-        markerDiameter = 0.2;
+        markerWidth = 0.15;
+        markerHeight = 0.15;
+        markerCurvature = 1; % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
         
         % interval thickness. Note that intervals should be thinner than
         % the marker diameter for the vertical alignment to work correctly 
         % Note that interval location and label location is determined by
         % markerDiameter
-        intervalThickness = 0.1;
+        intervalThickness = 0.2;
         
         % this controls both the gap between tick lines and tick labels,
         % and between tick labels and axis label offset
@@ -619,6 +621,22 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 
             ax.mapLocationHandles = AutoAxis.allocateHandleVector(0);
             ax.mapLocationCurrent = {};
+        end
+        
+        function restoreDefaults(ax)
+            sz = get(0, 'DefaultAxesFontSize');
+            tc = get(0, 'DefaultTextColor');
+            lc = get(0, 'DefaultLineColor');
+            
+            ax.tickFontSize = sz;
+            ax.tickFontColor = tc;
+            ax.labelFontColor = tc;
+            ax.labelFontSize = sz;
+            ax.titleFontSize = sz;
+            ax.titleFontColor = tc;
+            ax.scaleBarColor = lc;
+            ax.scaleBarFontSize = sz;
+            ax.scaleBarFontColor = tc;
         end
              
         function installInstanceForAxis(ax, axh)
@@ -1913,8 +1931,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %                 'MarkerEdgeColor', 'none', 'YLimInclude', 'off', 'XLimInclude', 'off', ...
 %                 'Clipping', 'off');
             
-            r = ax.markerDiameter / 2;
-            hm = rectangle('Position', [p.Results.x - r, yl(1) 2*r, 2*r], 'Curvature', [1 1], ...
+            
+            hm = rectangle('Position', [p.Results.x - ax.markerWidth/2, yl(1) ax.markerWidth, ax.markerHeight], 'Curvature', ax.markerCurvature, ...
                 'EdgeColor', 'none', 'FaceColor', p.Results.markerColor, ...
                 'YLimInclude', 'off', 'XLimInclude', 'off', 'Clipping', 'off', 'Parent', ax.axhDraw);
             hm.FaceColor(4) = p.Results.alpha;
@@ -1925,29 +1943,24 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 'FontSize', ax.tickFontSize, 'Color', p.Results.labelColor, ...
                 'HorizontalAlignment', p.Results.horizontalAlignment, ...
                 'VerticalAlignment', p.Results.verticalAlignment, ...
-                'Parent', ax.axhDraw, 'Interpreter', 'none');
+                'Parent', ax.axhDraw, 'Interpreter', 'none', 'BackgroundColor', 'none');
             set(ht, 'Clipping', 'off', 'Margin', 0.1);
-            
-%             % anchor marker height
-%             ai = AutoAxis.AnchorInfo(hm, PositionType.MarkerDiameter, ...
-%                 [], 'markerDiameter', 0, sprintf('markerX label ''%s'' height', label));
-%             ax.addAnchor(ai);
             
             % anchor marker height
             ai = AutoAxis.AnchorInfo(hm, PositionType.Height, ...
-                [], 'markerDiameter', 0, sprintf('markerX label ''%s'' height', label));
+                [], 'markerHeight', 0, sprintf('markerX label ''%s'' height', label));
             ax.addAnchor(ai);
             
 %             % anchor marker width
             ai = AutoAxis.AnchorInfo(hm, PositionType.Width, ...
-                [], 'markerDiameter', 0, sprintf('markerX label ''%s'' width', label));
+                [], 'markerWidth', 0, sprintf('markerX label ''%s'' width', label));
             ax.addAnchor(ai);
             
             % anchor marker to axis
             ai = AutoAxis.AnchorInfo(hm, PositionType.Top, ...
                 ax.axh, PositionType.Bottom, 'axisPaddingBottom', ...
                 sprintf('markerX ''%s'' to bottom of axis', label));
-            ax.addAnchor(ai);
+            ax.addAnchor(ai); 
             
             % anchor label to bottom of axis factoring in marker size,
             % this makes it consistent with how addIntervalX's label is
@@ -1955,7 +1968,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             offY = p.Results.textOffsetY;
             pos = PositionType.verticalAlignmentToPositionType(p.Results.verticalAlignment);  
             ai = AutoAxis.AnchorInfo(ht, pos, ...
-                ax.axh, PositionType.Bottom, @(ax, varargin) ax.axisPaddingBottom + ax.markerDiameter + ax.markerLabelOffset + offY, ...
+                ax.axh, PositionType.Bottom, @(ax, varargin) ax.axisPaddingBottom + ax.markerHeight + ax.markerLabelOffset + offY, ...
                 sprintf('markerX label ''%s'' to bottom of axis', label));
             ax.addAnchor(ai);
             
@@ -1972,7 +1985,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % anchor error rectangle height and vcenter
             if hasInterval
                 ai = AutoAxis.AnchorInfo(hr, PositionType.Height, ...
-                    [], @(ax, info) ax.markerDiameter/3, 0, 'markerX interval rect height');
+                    [], @(ax, info) ax.markerHeight/3, 0, 'markerX interval rect height');
                 ax.addAnchor(ai);
                 ai = AutoAxis.AnchorInfo(hr, PositionType.VCenter, ...
                     hm, PositionType.VCenter, 0, 'markerX interval rect to marker');
@@ -2289,7 +2302,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             hr = [hri; hre];
             ht = text(mean(interval), yl(1), label, 'HorizontalAlignment', p.Results.horizontalAlignment, ...
-                'VerticalAlignment', p.Results.verticalAlignment, 'Parent', ax.axhDraw);
+                'VerticalAlignment', p.Results.verticalAlignment, 'Parent', ax.axhDraw, 'BackgroundColor', 'none');
             set(ht, 'FontSize', fontSize, 'Margin', 0.1, 'Color', p.Results.labelColor);
             
             set(hri, 'FaceColor', color, 'EdgeColor', 'none', 'Clipping', 'off', ...
@@ -2310,7 +2323,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % bottom of the axis. Note that this assumes markerDiameter >
             % intervalThickness.
             ai = AnchorInfo(hri, PositionType.VCenter, ax.axh, ...
-                PositionType.Bottom, @(ax,varargin) ax.axisPaddingBottom + ax.markerDiameter/2, ...
+                PositionType.Bottom, @(ax,varargin) ax.axisPaddingBottom + ax.markerHeight/2, ...
                 sprintf('interval ''%s'' below axis', label));
             ax.addAnchor(ai);
 
@@ -2318,7 +2331,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             textOffsetY = p.Results.textOffsetY;
             pos = PositionType.verticalAlignmentToPositionType(p.Results.verticalAlignment);
             ai = AnchorInfo(ht, pos, ...
-                ax.axh, PositionType.Bottom, @(ax, varargin) ax.axisPaddingBottom + ax.markerDiameter + ax.markerLabelOffset + textOffsetY, ...
+                ax.axh, PositionType.Bottom, @(ax, varargin) ax.axisPaddingBottom + ax.markerHeight + ax.markerLabelOffset + textOffsetY, ...
                 sprintf('interval label ''%s'' below axis', label));
             ax.addAnchor(ai);
   
@@ -2335,7 +2348,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~isempty(hre)
                 % we use marker diameter here to make all error intervals
                 % the same height
-                ai = AnchorInfo(hre, PositionType.Height, [], @(ax,varargin) ax.markerDiameter/3, 0, ...
+                ai = AnchorInfo(hre, PositionType.Height, [], @(ax,varargin) ax.markerHeight/3, 0, ...
                     sprintf('interval ''%s'' error thickness', label));
                 ax.addAnchor(ai);
                 ai = AnchorInfo(hre, PositionType.VCenter, hri, PositionType.VCenter, 0, ...
@@ -2514,7 +2527,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('posY', PositionType.Top, @(x) isa(x, 'AutoAxis.PositionType'));
             p.addParameter('fontSize', ax.labelFontSize, @isscalar);
             p.addParameter('spacing', 'tickLabelOffset', @(x) true);
-            p.addParameter('fillColor', [], @(x) true);
+            p.addParameter('fillColor', 'none', @(x) true);
             p.addParameter('fillAlpha', 1, @isscalar);
             p.parse(varargin{:});
             posX = p.Results.posX;
@@ -2554,11 +2567,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 hvec(i) = text(0, (~rev * -i), label, 'FontSize', p.Results.fontSize, ...
                     'Color', c, 'HorizontalAlignment', posX.toHorizontalAlignment(), ...
                     'VerticalAlignment', posY.flip().toVerticalAlignment());
-                if ~isempty(p.Results.fillColor)
+                if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
+                    set(hvec(i), 'BackgroundColor', 'none');
+                else
                     set(hvec(i), 'BackgroundColor', p.Results.fillColor);
                     if p.Results.fillAlpha < 1
                         hvec(i).BackgroundColor(4) = p.Results.fillAlpha;
-                    end
+                    end  
                 end
                     
             end
@@ -2721,19 +2736,25 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             hvec = ax.getHandlesInCollection('intervals');
             if ~isempty(hvec)
                 hvec = hvec(isvalid(hvec));
-                uistack(hvec, 'top');
+                bringToTop(hvec);
             end
             
             hvec = ax.getHandlesInCollection('markers');
             if ~isempty(hvec)
                 hvec = hvec(isvalid(hvec));
-                uistack(hvec, 'top');
+                bringToTop(hvec);
             end
             
             hvec = ax.getHandlesInCollection('topLayer');
             if ~isempty(hvec)
                 hvec = hvec(isvalid(hvec));
-                uistack(hvec, 'top');
+                bringToTop(hvec);
+            end
+            
+            function bringToTop(hvec)
+                for i = 1:numel(hvec)
+                    uistack(hvec(i), 'top');
+                end
             end
         end
         
