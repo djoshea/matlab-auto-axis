@@ -1685,6 +1685,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 tickAlignment = p.Results.tickAlignment;
             end
             
+            ticks = sort(ticks);
+            
 %             tickLen = ax.tickLength;
             lineWidth = ax.tickLineWidth;
             tickRotation = p.Results.tickRotation;
@@ -1695,11 +1697,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if useX
                 hi = 1;
                 lo = 0;
-                xvals = [makerow(ticks); makerow(ticks)];
-                yvals = repmat([hi; lo], 1, numel(ticks));
                 
-                xbridge = [min(ticks); max(ticks)];
-                ybridge = [hi; hi];
+                % to get nice line caps on the edges, merge the edge ticks
+                % with the bridge
+                if numel(ticks) > 2
+                    xvals = [makerow(ticks(2:end-1)); makerow(ticks(2:end-1))];
+                    yvals = repmat([hi; lo], 1, numel(ticks)-2);
+                end
+                
+                xbridge = [ticks(1); ticks(1); ticks(end); ticks(end)];
+                ybridge = [lo; hi; hi; lo];
                 
                 xtext = ticks;
                 ytext = repmat(lo, size(ticks));
@@ -1719,11 +1726,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 lo = 0;
                 hi = 1;
                 
-                yvals = [makerow(ticks); makerow(ticks)];
-                xvals = repmat([hi; lo], 1, numel(ticks));
+                if numel(ticks) > 2
+                    yvals = [makerow(ticks(2:end-1)); makerow(ticks(2:end-1))];
+                    xvals = repmat([hi; lo], 1, numel(ticks)-2);
+                end
                 
-                xbridge = [hi; hi];
-                ybridge = [min(ticks); max(ticks)];
+                xbridge = [lo; hi; hi; lo];
+                ybridge = [ticks(1); ticks(1); ticks(end); ticks(end)];
                 
                 xtext = repmat(lo, size(ticks));
                 ytext = ticks;
@@ -1741,39 +1750,48 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             % draw tick bridge
-            hl = line(xvals, yvals, 'LineWidth', lineWidth, 'Color', color, 'Parent', ax.axhDraw);
+            if numel(ticks) > 2
+                ht = line(xvals, yvals, 'LineWidth', lineWidth, 'Color', color, 'Parent', ax.axhDraw);
+                set(ht, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
+                AutoAxis.hideInLegend(ht);
+            else
+                ht = gobjects(0, 1);
+            end
+            
             hb = line(xbridge, ybridge, 'LineWidth', lineWidth, 'Color', color, 'Parent', ax.axhDraw);
-            
-            AutoAxis.hideInLegend([hl; hb]);
-            
-            set([hl; hb], 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
+            AutoAxis.hideInLegend(hb);
+            set(hb, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
             
             % draw tick labels
-            ht = AutoAxis.allocateHandleVector(numel(ticks));
+            hl = AutoAxis.allocateHandleVector(numel(ticks));
             for i = 1:numel(ticks)
-                ht(i) = text(xtext(i), ytext(i), labels{i}, ...
+                hl(i) = text(xtext(i), ytext(i), labels{i}, ...
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
                     'Rotation', tickRotation, ...
                     'Parent', ax.axhDraw, 'Interpreter', 'none');
             end
-            set(ht, 'Clipping', 'off', 'Margin', 0.1, 'FontSize', fontSize, ...
+            set(hl, 'Clipping', 'off', 'Margin', 0.1, 'FontSize', fontSize, ...
                     'Color', color);
                 
             if ax.debug
-                set(ht, 'EdgeColor', 'r');
+                set(hl, 'EdgeColor', 'r');
             end
             
             if p.Results.useAutoAxisCollections
                 if useX
                     ax.addHandlesToCollection('autoAxisXBridge', hb);
-                    ax.addHandlesToCollection('autoAxisXTicks', ht);
+                    if ~isempty(ht)
+                        ax.addHandlesToCollection('autoAxisXTicks', ht);
+                    end
                     ax.addHandlesToCollection('autoAxisXTickLabels', hl);
                     hbRef = 'autoAxisXBridge';
                     htRef = 'autoAxisXTicks';
                     hlRef = 'autoAxisXTickLabels';
                 else
                     ax.addHandlesToCollection('autoAxisYBridge', hb);
-                    ax.addHandlesToCollection('autoAxisYTicks', ht);
+                    if ~isempty(ht)
+                        ax.addHandlesToCollection('autoAxisYTicks', ht);
+                    end
                     ax.addHandlesToCollection('autoAxisYTickLabels', hl);
                     hbRef = 'autoAxisYBridge';
                     htRef = 'autoAxisYTicks';
@@ -1785,29 +1803,62 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 hlRef = hl;
             end
             
-            % build anchor for lines
+            % build anchor for bridges (to axis), 
+            % anchor ticks to bridge
+            % set lengths of ticks on bridge and ticks
+            % anchor labels to bridges since
+            % it's guaranteed to have at least 2 ticks, whereas ht might be
+            % empty
             if p.Results.addAnchors
                 if useX
                     if ~otherSide
                         ai = AnchorInfo(hbRef, PositionType.Top, ax.axh, ...
                             PositionType.Bottom, offset, 'xTickBridge below axis');
                         ax.addAnchor(ai);
-                        ai = AnchorInfo(hlRef, PositionType.Height, ...
-                            [], 'tickLength', 0, 'xTick length');
+                        % anchor the height of the bridge which includes
+                        % the outermost ticks
+                        ai = AnchorInfo(hbRef, PositionType.Height, ...
+                            [], 'tickLength', 0, 'xTickBridge height for outermost ticks');
                         ax.addAnchor(ai);
-                        ai = AnchorInfo(hlRef, PositionType.Top, hbRef, ...
-                            PositionType.Bottom, 0, 'xTick below xTickBridge');
+                        
+                        if ~isempty(ht)
+                            % anchor ticks
+                            ai = AnchorInfo(htRef, PositionType.Height, ...
+                                [], 'tickLength', 0, 'xTick length');
+                            ax.addAnchor(ai);
+                            ai = AnchorInfo(htRef, PositionType.Top, hbRef, ...
+                                PositionType.Top, 0, 'xTick below xTickBridge');
+                            ax.addAnchor(ai);
+                        end
+                        
+                        % anchor labels to bridge
+                        ai = AnchorInfo(hlRef, PositionType.Top, ...
+                            hbRef, PositionType.Bottom, ax.tickLabelOffset, ...
+                            'xTickLabels below ticks');
                         ax.addAnchor(ai);
                     else
                         % top side
                         ai = AnchorInfo(hbRef, PositionType.Bottom, ax.axh, ...
                             PositionType.Top, offset, 'xTickBridge above axis');
                         ax.addAnchor(ai);
-                        ai = AnchorInfo(hlRef, PositionType.Height, ...
-                            [], 'tickLength', 0, 'xTick length');
+                        ai = AnchorInfo(hbRef, PositionType.Height, ...
+                            [], 'tickLength', 0, 'xTickBridge height for outermost ticks');
                         ax.addAnchor(ai);
-                        ai = AnchorInfo(hlRef, PositionType.Bottom, hbRef, ...
-                            PositionType.Top, 0, 'xTick above xTickBridge');
+                        
+                        if ~isempty(ht)
+                            % anchor ticks
+                            ai = AnchorInfo(htRef, PositionType.Height, ...
+                                [], 'tickLength', 0, 'xTick length');
+                            ax.addAnchor(ai);
+                            ai = AnchorInfo(htRef, PositionType.Bottom, hbRef, ...
+                                PositionType.Bottom, 0, 'xTick above xTickBridge');
+                            ax.addAnchor(ai);
+                        end
+                        
+                        % anchor labels to bridge
+                        ai = AnchorInfo(hlRef, PositionType.Bottom, ...
+                            hbRef, PositionType.Top, ax.tickLabelOffset, ...
+                            'xTickLabels above ticks');
                         ax.addAnchor(ai);
                     end
 
@@ -1816,49 +1867,50 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         ai = AnchorInfo(hbRef, PositionType.Right, ...
                             ax.axh, PositionType.Left, offset, 'yTickBridge left of axis');
                         ax.addAnchor(ai);
-                        ai = AnchorInfo(hlRef, PositionType.Width, ...
-                            [], 'tickLength', 0, 'yTick length');
+                        ai = AnchorInfo(hbRef, PositionType.Width, ...
+                            [], 'tickLength', 0, 'yTickBridge width for outermost ticks');
                         ax.addAnchor(ai);
+                        
+                        if ~isempty(ht)
+                            % anchor ticks
+                            ai = AnchorInfo(htRef, PositionType.Width, ...
+                                [], 'tickLength', 0, 'yTick length');
+                            ax.addAnchor(ai);
+                            ai = AnchorInfo(htRef, PositionType.Right, ...
+                                hbRef, PositionType.Right, 0, 'yTick left of yTickBridge');
+                            ax.addAnchor(ai);
+                        end
+                        
+                        % anchor labels to bridge
                         ai = AnchorInfo(hlRef, PositionType.Right, ...
-                            hbRef, PositionType.Left, 0, 'yTick left of yTickBridge');
+                            hbRef, PositionType.Left, ax.tickLabelOffset, ...
+                            'yTickLabels left of ticks');
                         ax.addAnchor(ai);
                     else
                         % right side
                         ai = AnchorInfo(hbRef, PositionType.Left, ...
                             ax.axh, PositionType.Right, offset, 'yTickBridge right of axis');
                         ax.addAnchor(ai);
-                        ai = AnchorInfo(hlRef, PositionType.Width, ...
-                            [], 'tickLength', 0, 'yTick length');
+                        ai = AnchorInfo(hbRef, PositionType.Width, ...
+                            [], 'tickLength', 0, 'yTickBridge width for outermost ticks');
                         ax.addAnchor(ai);
+                        
+                        if ~isempty(ht)
+                            % anchor ticks
+                            ai = AnchorInfo(htRef, PositionType.Width, ...
+                                [], 'tickLength', 0, 'yTick length');
+                            ax.addAnchor(ai);
+                            ai = AnchorInfo(htRef, PositionType.Left, ...
+                                hbRef, PositionType.Left, 0, 'yTick right of yTickBridge');
+                            ax.addAnchor(ai);
+                        end
+                        
+                        % anchor labels to bridge
                         ai = AnchorInfo(hlRef, PositionType.Left, ...
-                            hbRef, PositionType.Right, 0, 'yTick right of yTickBridge');
+                            hbRef, PositionType.Right, ax.tickLabelOffset, ...
+                            'yTickLabels right of ticks');
                         ax.addAnchor(ai);
                     end
-                end
-
-                % anchor labels to lines
-                if useX
-                    if ~otherSide
-                        ai = AnchorInfo(htRef, PositionType.Top, ...
-                            hlRef, PositionType.Bottom, ax.tickLabelOffset, ...
-                            'xTickLabels below ticks');
-                    else
-                        ai = AnchorInfo(htRef, PositionType.Bottom, ...
-                            hlRef, PositionType.Top, ax.tickLabelOffset, ...
-                            'xTickLabels above ticks');
-                    end
-                    ax.addAnchor(ai);
-                else
-                    if ~otherSide
-                        ai = AnchorInfo(htRef, PositionType.Right, ...
-                            hlRef, PositionType.Left, ax.tickLabelOffset, ...
-                            'yTickLabels left of ticks');
-                    else
-                        ai = AnchorInfo(htRef, PositionType.Left, ...
-                            hlRef, PositionType.Right, ax.tickLabelOffset, ...
-                            'yTickLabels right of ticks');
-                    end
-                    ax.addAnchor(ai);
                 end
             end
             
@@ -1929,8 +1981,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %             hm = plot(ax.axhDraw, p.Results.x, yl(1), 'Marker', p.Results.marker, ...
 %                 'MarkerSize', 1, 'MarkerFaceColor', p.Results.markerColor, ...
 %                 'MarkerEdgeColor', 'none', 'YLimInclude', 'off', 'XLimInclude', 'off', ...
-%                 'Clipping', 'off');
-            
+%                 'Clipping', 'off');   
             
             hm = rectangle('Position', [p.Results.x - ax.markerWidth/2, yl(1) ax.markerWidth, ax.markerHeight], 'Curvature', ax.markerCurvature, ...
                 'EdgeColor', 'none', 'FaceColor', p.Results.markerColor, ...
@@ -1994,7 +2045,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         
             % add to belowX handle collection to update the dependent
             % anchors
-            hlist = [hm; ht; hr];
+            hlist = [hr; hm; ht]; % order here matters, place error interval below marker
             ax.addHandlesToCollection('belowX', hlist);
             
             % list as generated content
@@ -2116,7 +2167,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 AutoAxis.hideInLegend(hr);
                 if ~isempty(label)
                     ht = text(xpos, yl(1), label, 'HorizontalAlignment', 'right', ...
-                        'VerticalAlignment', 'top', 'Parent', ax.axhDraw);
+                        'VerticalAlignment', 'top', 'Parent', ax.axhDraw, 'BackgroundColor', 'none');
                 else
                     ht = [];
                 end
@@ -2133,7 +2184,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if ~isempty(label)
                     ht = text(xl(2), ypos, label, 'HorizontalAlignment', 'right', ...
                         'VerticalAlignment', 'bottom', 'Parent', ax.axhDraw, ...
-                        'Rotation', -90);
+                        'Rotation', -90, 'BackgroundColor', 'none');
                 else
                     ht = [];
                 end
@@ -2300,7 +2351,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 'Parent', ax.axhDraw);
             AutoAxis.hideInLegend(hri);
             
-            hr = [hri; hre];
+            hr = [hre; hri]; % order here matters, show error range under interval
+            
             ht = text(mean(interval), yl(1), label, 'HorizontalAlignment', p.Results.horizontalAlignment, ...
                 'VerticalAlignment', p.Results.verticalAlignment, 'Parent', ax.axhDraw, 'BackgroundColor', 'none');
             set(ht, 'FontSize', fontSize, 'Margin', 0.1, 'Color', p.Results.labelColor);
