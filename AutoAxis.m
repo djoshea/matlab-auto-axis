@@ -1130,6 +1130,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 ax.addAutoScaleBarY();
             end
             ax.addTitle();
+            
+            ax.axisMarginLeft = 0.1;
+            ax.axisMarginBottom = 1;
             ax.update();
             ax.installCallbacks();
         end
@@ -1385,6 +1388,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 firstTime = true;
                 remove = [];
             end
+            
+            firstTime = true;
             
             hlist = ax.addTickBridge('y', ...
                 'useAutoAxisCollections', true, ...
@@ -2506,7 +2511,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 ht(i) = text(xtext(i), ytext(i), label{i}, ...
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
-                    'Parent', ax.axhDraw, 'Interpreter', 'none');
+                    'Parent', ax.axhDraw, 'Interpreter', 'none', 'BackgroundColor', 'none');
                 if iscell(color)
                     set(ht(i), 'Color', color{wrap(i)});
                 else
@@ -2804,9 +2809,22 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             function bringToTop(hvec)
-                for i = 1:numel(hvec)
-                    uistack(hvec(i), 'top');
-                end
+                % hvec is listed in order of their creation, last created
+                % is last in the array, but should be at the top of the
+                % stacking order, hence flipud.
+                % we do this directly because repeated calls to uistack are
+                % slow and uistack doesn't preserve the order of the
+                % handles passed in sometimes
+                
+                children = ax.axh.Children;
+                mask = ismember(children, hvec);
+                hvecMask = ismember(hvec, children);
+                children = [flipud(hvec(hvecMask)); children(~mask)];
+                ax.axh.Children = children;
+                
+%                 for i = 1:numel(hvec)
+%                     uistack(hvec(i), 'top');
+%                 end
             end
         end
         
