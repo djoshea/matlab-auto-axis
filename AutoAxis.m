@@ -95,6 +95,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         scaleBarFontSize
         
         debug = false;
+        
+        gridBackground = [0.92 0.92 0.95]; % copying seaborn
+        gridColor = 'w';
+        minorGridColor = [0.96 0.96 0.96];
     end
     
     properties(Hidden)
@@ -670,6 +674,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % saving.
             hl(1) = addlistener(ax.axh, {'XDir', 'YDir'}, 'PostSet', @ax.axisCallback);
             hl(2) = addlistener(ax.axh, {'XLim', 'YLim'}, 'PostSet', @ax.axisIfLimsChangedCallback);
+            hl(3) = addlistener(ax.axh, {'XGrid', 'YGrid', 'XMinorGrid', 'YMinorGrid'}, 'PostSet', @ax.axisCallback);
 %             hl(3) = addlistener(ax.axh, {'Parent'}, 'PostSet',
 %             @(varargin) ax.installCallbacks); % has issues with
 %             AxesLayoutManager and zooming
@@ -1039,14 +1044,23 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             names = fieldnames(ax.collections);
         end
         
-        function h = getHandlesInCollection(ax, name)
-            if isfield(ax.collections, name)
-                h = ax.collections.(name);
-            elseif isfield(ax, name)
-                h = ax.(name);
-            else
-                h = AutoAxis.allocateHandleVector(0);
+        function h = getHandlesInCollection(ax, names)
+            % names is char or cellstr of collection name(s)
+            if ischar(names)
+                names = {names};
             end
+            hc = cell(numel(names), 1);
+            for i = 1:numel(names)
+                name = names{i};
+                if isfield(ax.collections, name)
+                    hc{i} = ax.collections.(name);
+                elseif isfield(ax, name)
+                    hc{i} = ax.(name);
+                else
+                    hc{i} = AutoAxis.allocateHandleVector(0);
+                end
+            end
+            h = cat(1, hc{:});
         end
 
         function removeHandles(ax, hvec)
@@ -1101,7 +1115,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
 
             ax = AutoAxis(axh);
-            axis(axh, 'off');
+%             axis(axh, 'off');
             ax.addAutoAxisX();
             ax.addAutoAxisY();
             ax.addTitle();
@@ -1120,7 +1134,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.parse(varargin{:});
 
             ax = AutoAxis(p.Results.axh);
-            axis(p.Results.axh, 'off');
+            %axis(p.Results.axh, 'off');
             ax.xUnits = p.Results.xUnits;
             ax.yUnits = p.Results.yUnits;
             if ismember('x', p.Results.axes)
@@ -1154,6 +1168,51 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % and update to prune anchors
             ax.update();
+        end
+
+        function gridOn(ax, mode, varargin)
+            p = inputParser();
+            p.addParameter('xMinor', false, @islogical);
+            p.addParameter('yMinor', false, @islogical);
+            p.parse(varargin{:});
+            if nargin < 2
+                mode = 'xy';
+            end
+            
+            switch mode
+                case 'x'
+                    ax.axh.XGrid = 'on';
+                    ax.axh.YGrid = 'off';
+
+                case 'y'
+                    ax.axh.XGrid = 'off';
+                    ax.axh.YGrid = 'on';
+
+                case {'both', 'xy'}
+                    ax.axh.XGrid = 'on';
+                    ax.axh.YGrid = 'on';
+
+                otherwise
+                    error('Mode must be x, y, or xy');
+            end
+
+            if p.Results.xMinor
+                ax.axh.XMinorGrid = 'on';
+            else
+                ax.axh.XMinorGrid = 'off';
+            end
+            if p.Results.yMinor
+                ax.axh.YMinorGrid = 'on';
+            else
+                ax.axh.YMinorGrid = 'off';
+            end
+        end
+        
+        function gridOff(ax)
+            ax.axh.XGrid = 'off';
+            ax.axh.YGrid = 'off';
+            ax.axh.XMinorGrid = 'off';
+            ax.axh.YMinorGrid = 'off';
         end
         
         function clearX(ax)
@@ -2706,7 +2765,28 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
                     
             %disp('autoaxis.update!');
-            axis(ax.axh, 'off');
+            gridActive = strcmp(ax.axh.XGrid, 'on') || strcmp(ax.axh.YGrid, 'on') || ...
+                strcmp(ax.axh.XMinorGrid, 'on') || strcmp(ax.axh.YMinorGrid, 'on');
+            if gridActive
+                % dont turn the grid off, instead hide the rulers
+                axis(ax.axh, 'on');
+                box(ax.axh, 'off');
+                ax.axh.XRuler.Visible = 'off';
+                ax.axh.YRuler.Visible = 'off';
+                
+                % use a dark background with light grid lines
+                ax.axh.Color = ax.gridBackground;
+                ax.axh.GridColor = ax.gridColor;
+                ax.axh.GridAlpha = 1;
+                ax.axh.MinorGridColor = ax.minorGridColor;
+                ax.axh.MinorGridAlpha = 1;
+                ax.axh.MinorGridLineStyle = '-';
+                figh = AutoAxis.getParentFigure(ax.axh);
+                figh.InvertHardcopy = 'off';
+                % other properties will be set in deferred updates
+            else
+                axis(ax.axh, 'off');
+            end
             if ax.usingOverlay
                 axis(ax.axhDraw, 'off');
                 set(ax.axhDraw, 'Color', 'none');
@@ -2839,6 +2919,28 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     hvec(i).Face.Clipping = 'off';
                 end
             end
+            
+            % deferred grid line handling
+            if strcmp(ax.axh.YGrid, 'on') && ~isempty(ax.axh.YGridHandle)
+                if strcmp(ax.axh.YMinorGrid, 'on')
+                    % use thick / thin lines
+                    ax.axh.YGridHandle.LineWidth = 1;
+                    ax.axh.YGridHandle.MinorLineWidth = 0.5;
+                else
+                    % use only thin lines
+                    ax.axh.YGridHandle.LineWidth = 0.5;
+                    ax.axh.YGridHandle.MinorLineWidth = 0.5;
+                end
+            end
+            if strcmp(ax.axh.XGrid, 'on') && ~isempty(ax.axh.XGridHandle)
+                if strcmp(ax.axh.XMinorGrid, 'on')
+                    ax.axh.XGridHandle.LineWidth = 1;
+                    ax.axh.XGridHandle.MinorLineWidth = 0.5;
+                else
+                    ax.axh.XGridHandle.LineWidth = 0.5;
+                    ax.axh.XGridHandle.MinorLineWidth = 0.5;
+                end
+            end
         end
         
         function updateOverlayAxisPositioning(ax)
@@ -2913,12 +3015,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 info = ax.anchorInfoDeref(i);
                 
                 % lookup h as handle collection
-                if ischar(info.h)
+                if ischar(info.h) || iscell(info.h)
                     info.h = sort(ax.getHandlesInCollection(info.h));
                 end
                 
                 % lookup ha as handle collection
-                if ischar(info.ha)
+                if ischar(info.ha) || iscell(info.ha)
                     info.ha = sort(ax.getHandlesInCollection(info.ha));
                 end
                 
@@ -3054,7 +3156,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % and actually set the position of the data
             % this will also create / update the position information
             % in the LocationCurrent for that object
-            ax.updatePositionData(info.h, info.pos, pAnchor);
+            ax.updatePositionData(info.h, info.pos, pAnchor, info.translateDontScale, info.applyToPointsWithinLine);
             
             valid = true;
         end
@@ -3283,13 +3385,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             pos = LocationCurrent.getAggregateValue(clocVec, posType, ax.xReverse, ax.yReverse);
         end
         
-        function updatePositionData(ax, hVec, posType, value)
+        function updatePositionData(ax, hVec, posType, value, translateDontScale, applyToPointsWithinLine)
             % update the position of handles in vector hVec using the LocationCurrent in 
             % ax.locMap. When hVec is a vector of handles, linearly shifts
             % each object to maintain the relative positions and to
             % shift the bounding box of the objects
             
+            value = double(value);
             import AutoAxis.*;
+            
+            if ~exist('applyToPointsWithinLine', 'var')
+                applyToPointsWithinLine = [];
+            end
             
             if ~isscalar(hVec)
                 % here we linearly scale / translate the bounding box
@@ -3318,8 +3425,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                        h = hVec(i);
                        t = ax.getCurrentPositionData(h, PositionType.Top);
                        he = ax.getCurrentPositionData(h, PositionType.Height);
-                       ax.updatePositionData(h, PositionType.Height, newHeightFn(he));
-                       ax.updatePositionData(h, PositionType.Top, newPosFn(t));
+                       ax.updatePositionData(h, PositionType.Height, newHeightFn(he), false);
+                       ax.updatePositionData(h, PositionType.Top, newPosFn(t), false);
                     end
                 
                 elseif posType == PositionType.Width
@@ -3341,8 +3448,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                        h = hVec(i);
                        l = ax.getCurrentPositionData(h, PositionType.Left);
                        w = ax.getCurrentPositionData(h, PositionType.Width);
-                       ax.updatePositionData(h, PositionType.Width, newWidthFn(w));
-                       ax.updatePositionData(h, PositionType.Left, newPosFn(l));
+                       ax.updatePositionData(h, PositionType.Width, newWidthFn(w), false);
+                       ax.updatePositionData(h, PositionType.Left, newPosFn(l), false);
                     end
                     
                 else
@@ -3351,7 +3458,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     for i = 1:numel(hVec)
                        h = hVec(i);
                        p = ax.getCurrentPositionData(h, posType);
-                       ax.updatePositionData(h, posType, p + offset);
+                       ax.updatePositionData(h, posType, p + offset, false);
                     end
                 end
 
@@ -3364,7 +3471,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % object to move the graphics object
                 cloc = ax.getLocationCurrent(h);
                 cloc.setPosition(posType, value, ...
-                    ax.xDataToPoints, ax.yDataToPoints, ax.xReverse, ax.yReverse);
+                    ax.xDataToPoints, ax.yDataToPoints, ax.xReverse, ax.yReverse, translateDontScale, applyToPointsWithinLine);
             end
         end
     end
