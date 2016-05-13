@@ -1,0 +1,9 @@
+clf;
+
+h = rectangle('Position', [0 0 1 1], 'FaceColor', 'r');
+
+a1 = AnchorInfo(h(1), PositionType.Top, axh, PositionType.Top);
+a2 = AnchorInfo(h(1), PositionType.Bottom, axh, PositionType.Bottom);
+a2.translateDontScale = false;
+au.addAnchor(a1);
+au.addAnchor(a2);

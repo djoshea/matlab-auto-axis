@@ -52,7 +52,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             end
             loc.type = get(h, 'Type');
             
-            loc.isDynamic = strcmp(loc.type, 'axes');
+            loc.isDynamic = strcmp(loc.type, 'axes') || strcmp(loc.type, 'text');
 
             loc.queryPosition(varargin{:});
         end
@@ -133,6 +133,11 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             % xReverse is true if x axis is reversed, yReverse if y
             % reversed
             
+            if ~isvalid(loc.h)
+                warning('Invalid handle');
+                return;
+            end
+            
             switch loc.type
                 case 'line'
                     marker = get(loc.h, 'Marker');
@@ -212,7 +217,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         loc.bottom = posv(2) - posv(4);
                     else
                         loc.bottom = posv(2);
-                        loc.top = posv(2) - posv(4);
+                        loc.top = posv(2) + posv(4);
                     end
                     
                     if xReverse
@@ -220,18 +225,21 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         loc.left = posv(1) - posv(3);
                     else
                         loc.left = posv(1);
-                        loc.right = posv(1) - posv(3);
+                        loc.right = posv(1) + posv(3);
                     end
             end
             
             
         end
 
-        function setPosition(loc, posType, value, xDataToPoints, yDataToPoints, xReverse, yReverse)
+        function setPosition(loc, posType, value, xDataToPoints, yDataToPoints, xReverse, yReverse, translateDontScale, applyToPointsWithinLine)
             import AutoAxis.*;
             h = loc.h; %#ok<*PROP>
             type = get(h, 'Type');
 
+            if ~exist('applyToPointsWithinLine', 'var')
+                applyToPointsWithinLine = [];
+            end
             switch type
                 case 'line'
                     marker = get(h, 'Marker');
@@ -260,68 +268,162 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     xdata = get(h, 'XData');
                     ydata = get(h, 'YData');
 
-                    % rescale the appropriate data points from their
-                    % current values to scale linearly onto the new values
-                    % but only along the dimension to be resized
-                    switch posType
-                        case PositionType.Top
-                            if yReverse
-                                ydata = ydata - nanmin(ydata) + value + markerSizeY/2;
-                            else
-                                ydata = ydata - nanmax(ydata) + value - markerSizeY/2;
-                            end
+                    if isempty(applyToPointsWithinLine)
+                        % rescale the appropriate data points from their
+                        % current values to scale linearly onto the new values
+                        % but only along the dimension to be resized
+                        switch posType
+                            case PositionType.Top
+                                if translateDontScale
+                                    if yReverse
+                                        ydata = ydata - nanmin(ydata) + value + markerSizeY/2;
+                                    else
+                                        ydata = ydata - nanmax(ydata) + value - markerSizeY/2;
+                                    end
+                                else
+                                    % scale to keep current bottom
+                                    if yReverse
+                                        bottom = nanmax(ydata) + markerSizeY;
+                                        top = nanmin(ydata) - markerSizeY;
+                                    else
+                                        top = nanmax(ydata) + markerSizeY;
+                                        bottom = nanmin(ydata) - markerSizeY;
+                                    end
+                                    scale = (bottom-top) / (bottom-value);
+                                    ydata = (ydata - bottom) / scale + bottom;
+                                end
 
-                        case PositionType.Bottom
-                            if yReverse
-                                ydata = ydata - nanmin(ydata) + value + markerSizeY/2;
-                            else
-                                ydata = ydata - nanmax(ydata) + value - markerSizeY/2;
-                            end
+                            case PositionType.Bottom
+                                if translateDontScale
+                                    if yReverse
+                                        ydata = ydata - nanmax(ydata) + value + markerSizeY/2;
+                                    else
+                                        ydata = ydata - nanmin(ydata) + value - markerSizeY/2;
+                                    end
+                                else
+                                    % scale to keep current top
+                                    if yReverse
+                                        bottom = nanmax(ydata) + markerSizeY/2;
+                                        top = nanmin(ydata) - markerSizeY/2;
+                                    else
+                                        top = nanmax(ydata) + markerSizeY/2;
+                                        bottom = nanmin(ydata) - markerSizeY/2;
+                                    end
+                                    scale = (bottom-top) / (value-top);
+                                    ydata = (ydata - top) / scale + top;
+                                end
 
-                        case PositionType.VCenter
-                            lo = nanmin(ydata); hi = nanmax(ydata);
-                            ydata = (ydata - (hi+lo)/2) + value;
+                            case PositionType.VCenter
+                                lo = nanmin(ydata); hi = nanmax(ydata);
+                                ydata = (ydata - (hi+lo)/2) + value;
 
-                        case PositionType.Height
-                            lo = nanmin(ydata); hi = nanmax(ydata);
-                            if hi - lo < eps, return, end
-                            ydata = (ydata - lo) / (hi - lo + markerSizeY) * value + lo;
+                            case PositionType.Height
+                                lo = nanmin(ydata); hi = nanmax(ydata); mid = (lo+hi) / 2;
+                                if hi - lo < eps, return, end
+                                ydata = (ydata - mid) / (hi - lo + markerSizeY) * value + mid;
 
-                        case PositionType.Left
-                            if xReverse
-                                xdata = xdata - nanmax(xdata) + value + markerSizeX/2;
-                            else
-                                xdata = xdata - nanmin(xdata) + value - markerSizeX/2;
-                            end
-                            
-                        case PositionType.Right
-                            if xReverse
-                                xdata = xdata - nanmin(xdata) + value - markerSizeX/2;
-                            else
-                                xdata = xdata - nanmax(xdata) + value + markerSizeX/2;
-                            end
-                            
-                        case PositionType.HCenter
-                            lo = nanmin(xdata); hi = nanmax(xdata);
-                            xdata = (xdata - (hi+lo)/2) + value;
+                            case PositionType.Left
+                                if translateDontScale
+                                    if xReverse
+                                        xdata = xdata - nanmax(xdata) + value + markerSizeX/2;
+                                    else
+                                        xdata = xdata - nanmin(xdata) + value - markerSizeX/2;
+                                    end
+                                else
+                                    % scale to keep current right
+                                    if xReverse
+                                        left = nanmax(xdata) + markerSizeX/2;
+                                        right = nanmin(xdata) - markerSizeX/2;
+                                    else
+                                        left = nanmin(xdata) + markerSizeX/2;
+                                        right = nanmax(xdata) - markerSizeX/2;
+                                    end
+                                    scale = (left-right) / (value-right);
+                                    xdata = (xdata-right) / scale + right;
+                                end 
 
-                        case PositionType.Width
-                            lo = nanmin(xdata); hi = nanmax(xdata);
-                            if hi - lo < eps, return, end
-                            xdata = (xdata - lo) / (hi - lo + markerSizeX) * value + lo;
-                            
-                        case PositionType.MarkerDiameter
-                            markerSize = markerDiameterPoints;
-                            if(strcmp(marker, '.'))
-                                % for ., the size is the diameter
-                                markerSize = markerSize * 3.4;
-                            elseif strcmp(marker, 'none')
-                                markerSize = 0;
-                            end 
-                            setMarkerSize = true;
+                            case PositionType.Right
+                                if translateDontScale
+                                    if xReverse
+                                        xdata = xdata - nanmin(xdata) + value - markerSizeX/2;
+                                    else
+                                        xdata = xdata - nanmax(xdata) + value + markerSizeX/2;
+                                    end
+                                else
+                                    % scale to keep current left
+                                    if xReverse
+                                        left = nanmax(xdata) + markerSizeX/2;
+                                        right = nanmin(xdata) - markerSizeX/2;
+                                    else
+                                        left = nanmin(xdata) + markerSizeX/2;
+                                        right = nanmax(xdata) - markerSizeX/2;
+                                    end
+                                    scale = (left-right) / (left-value);
+                                    xdata = (xdata-left) / scale + left;
+                                end
+
+                            case PositionType.HCenter
+                                lo = nanmin(xdata); hi = nanmax(xdata);
+                                xdata = (xdata - (hi+lo)/2) + value;
+
+                            case PositionType.Width
+                                lo = nanmin(xdata); hi = nanmax(xdata); mid = (lo+hi)/2;
+                                if hi - lo < eps, return, end
+                                xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
+
+                            case PositionType.MarkerDiameter
+                                markerSize = markerDiameterPoints;
+                                if(strcmp(marker, '.'))
+                                    % for ., the size is the diameter
+                                    markerSize = markerSize * 3.4;
+                                elseif strcmp(marker, 'none')
+                                    markerSize = 0;
+                                end 
+                                setMarkerSize = true;
+                        end
+                    else
+                        % position specific point within line
+                        m = applyToPointsWithinLine;
+                        switch posType
+                            case PositionType.Top
+                                if yReverse
+                                    ydata(m) = value + markerSizeY/2;
+                                else
+                                    ydata(m) = value - markerSizeY/2;
+                                end
+                                
+                            case PositionType.Bottom
+                                if yReverse
+                                    ydata(m) = value - markerSizeY/2;
+                                else
+                                    ydata(m) = value + markerSizeY/2;
+                                end
+                                
+                            case PositionType.VCenter
+                                ydata(m) = value;
+
+                            case PositionType.Left
+                                if xReverse
+                                    xdata(m) = value - markerSizeX/2;
+                                else
+                                    xdata(m) = value + markerSizeX/2;
+                                end
+
+                            case PositionType.Right
+                                if xReverse
+                                    xdata(m) = value + markerSizeX/2;
+                                else
+                                    xdata(m) = value - markerSizeX/2;
+                                end
+                                
+                            case PositionType.HCenter
+                                xdata(m) = value;
+                            otherwise
+                                error('PositionType %s not supported for applyToPointsWithinLine', posType);
+                        end
                     end
 
-                    set(h, 'XData', xdata, 'YData', ydata);
+                    set(h, 'XData', xdata, 'YData', ydata); %#ok<*PROPLC>
                     if setMarkerSize && markerSize > 0
                         set(h, 'MarkerSize', markerSize);
                     end
@@ -416,44 +518,111 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
 
                     switch posType
                         case PositionType.Top
-                            if yReverse
-                                p(2) = value;
+                            if translateDontScale
+                                if yReverse
+                                    p(2) = value;
+                                else
+                                    p(2) = value - p(4);
+                                end
                             else
-                                p(2) = value - p(4);
+                                % scale to keep current bottom
+                                if yReverse
+                                    % bottom is p(2) + p(4);
+                                    bottom = p(2) + p(4);
+                                    p(2) = value;
+                                    p(4) = bottom - value;
+                                else
+                                    % bottom is p(2)
+                                    p(4) = value - p(2);
+                                end
                             end
                         case PositionType.Bottom
-                            if yReverse
-                                p(2) = value - p(4);
+                            if translateDontScale
+                                if yReverse
+                                    p(2) = value - p(4);
+                                else
+                                    p(2) = value;
+                                end
                             else
-                                p(2) = value;
+                                % scale to keep current top
+                                if yReverse
+                                    % top is p(2)
+                                    p(4) = value - p(2);
+                                else
+                                    % top is p(2) + p(4);
+                                    top = p(2) + p(4);
+                                    p(2) = value;
+                                    p(4) = top - value;
+                                end
                             end
                         case PositionType.VCenter
                             p(2) = value - p(4)/2;
                             
                         case PositionType.Height
+                            % maintain vertical center
+                            p(2) = (p(2) + p(4) / 2) - value/2;
                             p(4) = value;
                             
                         case PositionType.Right
-                            if xReverse
-                                p(1) = value;
+                            if translateDontScale
+                                if xReverse
+                                    p(1) = value;
+                                else
+                                    p(1) = value - p(3);
+                                end
                             else
-                                p(1) = value - p(3);
+                                % scale to keep current left
+                                if xReverse
+                                    % left is p(1) + p(3);
+                                    right = p(1) + p(3);
+                                    p(1) = value;
+                                    p(3) = right- value;
+                                else
+                                    % left is p(1)
+                                    p(3) = value - p(1);
+                                end
                             end
                         case PositionType.Left
-                            if xReverse
-                                p(1) = value - p(3);
+                            if translateDontScale
+                                if xReverse
+                                    p(1) = value - p(3);
+                                else
+                                    p(1) = value;
+                                end
                             else
-                                p(1) = value;
+                                % scale to keep current bottom
+                                if xReverse
+                                    % right is p(1)
+                                    p(3) = value - p(1);
+                                else
+                                    % right is p(1) + p(3);
+                                    left = p(1) + p(3);
+                                    p(1) = value;
+                                    p(3) = left - value;
+                                end
                             end
                         case PositionType.HCenter
                             p(1) = value - p(3)/2;
                             
                         case PositionType.Width
+                            % maintain horizontal center
+                            p(1) = (p(1) + p(3)/2) - value/2;
                             p(3) = value;
                             
                     end
 
+                    % test for negative scaling
+                    if p(3) < 0
+                        p(1) = p(1) + p(3);
+                        p(3) = -p(3);
+                    end
+                    
+                    if p(4) < 0
+                        p(2) = p(2) + p(4);
+                        p(4) = -p(4);
+                    end
                     set(h, 'Position', p);
+                    h.Clipping = 'off';
                     if yReverse
                         loc.top = p(2);
                         loc.bottom = p(2) + p(4);

@@ -12,7 +12,7 @@ avals = linspace(0.5, 5, 20);
 cmap = copper(numel(avals));
 for i = 1:numel(avals)
     y = avals(i)*sin(2*pi*0.5*t);
-    plot(t, y, '-', 'Color', cmap(i, :), 'LineWidth', 2);
+    h(i) = plot(t, y, '-', 'Color', cmap(i, :), 'LineWidth', 2);
     hold on
 end
 
@@ -22,6 +22,7 @@ end
 %ht = text(1,1, 'Anchored Label', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
 
 au = AutoAxis();
+axh = gca;
 
 %au.addAnchor(AnchorInfo(ht, PositionType.Top, hm, PositionType.Bottom));
 %au.addAnchor(AnchorInfo(ht, PositionType.HCenter, hm, PositionType.HCenter));
@@ -53,12 +54,12 @@ else
     au.addXLabelAnchoredToDecorations('X Label');
     au.yUnits = 'mV';
     au.addAutoScaleBarY();
-    au.axisMarginBottom = 1.2;
+    au.axisMarginBottom = 1.8;
 end
 % au.addYLabelAnchoredToAxis();
 % au.addXLabelAnchoredToAxis();
 
-axis off
+au.gridOn();
 au.update();
 au.installCallbacks();
 
