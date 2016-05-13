@@ -133,6 +133,11 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             % xReverse is true if x axis is reversed, yReverse if y
             % reversed
             
+            if ~isvalid(loc.h)
+                warning('Invalid handle');
+                return;
+            end
+            
             switch loc.type
                 case 'line'
                     marker = get(loc.h, 'Marker');

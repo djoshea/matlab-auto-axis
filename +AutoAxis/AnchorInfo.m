@@ -18,7 +18,7 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
         
         % instead of moving the whole line object, position specific points
         % directly within a line
-        applyToPointsWithinLine
+        applyToPointsWithinLine = [];
     end  
     
 %     properties(Hidden, SetAccess=?AutoAxis)

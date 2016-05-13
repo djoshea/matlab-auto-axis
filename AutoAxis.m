@@ -645,9 +645,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
              
         function installInstanceForAxis(ax, axh)
             setappdata(axh, 'AutoAxisInstance', ax); 
-            ax.addTitle();
-            ax.addXLabelAnchoredToAxis();
-            ax.addYLabelAnchoredToAxis();
+%             ax.addTitle();
+%             ax.addXLabelAnchoredToAxis();
+%             ax.addYLabelAnchoredToAxis();
             ax.installCallbacks();
             ax.installClaListener();
         end
@@ -3056,6 +3056,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % remove handles no longer needed
             [ax.mapLocationHandles, idxKeep] = intersect(ax.mapLocationHandles, hvec);
+            %idxKeep = idxKeep & isvalid(ax.mapLocationHandles);
             ax.mapLocationCurrent = ax.mapLocationCurrent(idxKeep);
             
             % update handles which are considered "dynamic" whose position
@@ -3201,6 +3202,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 hDepMat(haWhich(haCat == hCat(iH)), hWhich(iH)) = true;
             end
             
+            % build matrix which is true if anchorInfo i positions/sizes the
+            % same handles as are positioned/sized by anchorInfo j
+            hAffectSameMat = false(nA, nA);
+            for iH = 1:numel(hCat)
+                hAffectSameMat(hWhich(hCat == hCat(iH)), hWhich(iH)) = true;
+            end
+            hAffectSameMat = hAffectSameMat & ~eye(nA);
+            
             % now loop through and build a list of actually realized dependencies,
             % which depends on hDepMat but also the types of positions that
             % are being specified
@@ -3221,15 +3230,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 
                 % if this anchor sets the position of h, add dependencies
-                % on any anchors which affect the size of this object so
+                % on any anchors which affect the size of the same object so
                 % that sizing happens before positioning
-                if specifiesSize(iA)
+                if ~specifiesSize(iA)
                     if isX(iA)
-                        %dependencyMat(iA, :) = dependencyMat(iA, :) | ax.findAnchorsSpecifying(anchor.h, PositionType.Width);
-                        dependencyMat(iA, :) = dependencyMat(iA, :) | (hDepMat(iA, :) & posSpecified' == PositionType.Width);
+                        dependencyMat(iA, :) = dependencyMat(iA, :) | (hAffectSameMat(iA, :)' & specifiesSize & isX)';
                     else
-%                         dependencyMat(iA, :) = dependencyMat(iA, :) | ax.findAnchorsSpecifying(anchor.h, PositionType.Height);
-                        dependencyMat(iA, :) = dependencyMat(iA, :) | (hDepMat(iA, :) & posSpecified' == PositionType.Height);
+                        dependencyMat(iA, :) = dependencyMat(iA, :) | (hAffectSameMat(iA, :)' & specifiesSize & ~isX)';
                     end
                 end
 
@@ -3394,6 +3401,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             value = double(value);
             import AutoAxis.*;
             
+            if ~exist('translateDontScale', 'var')
+                translateDontScale = true;
+            end
             if ~exist('applyToPointsWithinLine', 'var')
                 applyToPointsWithinLine = [];
             end
@@ -3425,8 +3435,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                        h = hVec(i);
                        t = ax.getCurrentPositionData(h, PositionType.Top);
                        he = ax.getCurrentPositionData(h, PositionType.Height);
-                       ax.updatePositionData(h, PositionType.Height, newHeightFn(he), false);
-                       ax.updatePositionData(h, PositionType.Top, newPosFn(t), false);
+                       ax.updatePositionData(h, PositionType.Height, newHeightFn(he));
+                       ax.updatePositionData(h, PositionType.Top, newPosFn(t));
                     end
                 
                 elseif posType == PositionType.Width
@@ -3448,8 +3458,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                        h = hVec(i);
                        l = ax.getCurrentPositionData(h, PositionType.Left);
                        w = ax.getCurrentPositionData(h, PositionType.Width);
-                       ax.updatePositionData(h, PositionType.Width, newWidthFn(w), false);
-                       ax.updatePositionData(h, PositionType.Left, newPosFn(l), false);
+                       ax.updatePositionData(h, PositionType.Width, newWidthFn(w));
+                       ax.updatePositionData(h, PositionType.Left, newPosFn(l));
                     end
                     
                 else
@@ -3458,7 +3468,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     for i = 1:numel(hVec)
                        h = hVec(i);
                        p = ax.getCurrentPositionData(h, posType);
-                       ax.updatePositionData(h, posType, p + offset, false);
+                       ax.updatePositionData(h, posType, p + offset);
                     end
                 end
 
