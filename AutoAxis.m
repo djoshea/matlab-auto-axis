@@ -140,9 +140,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if numel(v) == 1
                 ax.axisPadding = [v v v v];
             elseif numel(v) == 2 % assume horz, vert
-                ax.axisPadding = [makerow(v), makerow(v)];
+                ax.axisPadding = [AutoAxis.Utilities.makerow(v), AutoAxis.Utilities.makerow(v)];
             else
-                ax.axisPadding = makerow(v);
+                ax.axisPadding = AutoAxis.Utilities.makerow(v);
             end
         end
                         
@@ -182,9 +182,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if numel(v) == 1
                 ax.axisMargin = [v v v v];
             elseif numel(v) == 2 % assume horz, vert
-                ax.axisMargin = [makerow(v), makerow(v)];
+                ax.axisMargin = [AutoAxis.Utilities.makerow(v), AutoAxis.Utilities.makerow(v)];
             else
-                ax.axisMargin = makerow(v);
+                ax.axisMargin = AutoAxis.Utilities.makerow(v);
             end
         end
         
@@ -1028,7 +1028,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 oldHvec = ax.collections.(name);
             end
 
-            newHvec = makecol(union(oldHvec, hvec, 'stable'));
+            newHvec = AutoAxis.Utilities.makecol(union(oldHvec, hvec, 'stable'));
             
             % install the new collection
             ax.collections.(name) = newHvec;
@@ -1072,7 +1072,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             % remove from tag list
-            mask = truevec(numel(ax.handleTagObjects));
+            mask = AutoAxis.Utilities.truevec(numel(ax.handleTagObjects));
             for iH = 1:numel(hvec)
                 mask(hvec(iH) == ax.handleTagObjects) = false;
             end
@@ -1686,7 +1686,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             % add handles to handle collections
-            ht = makecol(ht);
+            ht = AutoAxis.Utilities.makecol(ht);
             if useX
                 ax.addHandlesToCollection('belowX', ht);
             else
@@ -1765,7 +1765,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % to get nice line caps on the edges, merge the edge ticks
                 % with the bridge
                 if numel(ticks) > 2
-                    xvals = [makerow(ticks(2:end-1)); makerow(ticks(2:end-1))];
+                    xvals = [AutoAxis.Utilities.makerow(ticks(2:end-1)); AutoAxis.Utilities.makerow(ticks(2:end-1))];
                     yvals = repmat([hi; lo], 1, numel(ticks)-2);
                 end
                 
@@ -1791,7 +1791,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 hi = 1;
                 
                 if numel(ticks) > 2
-                    yvals = [makerow(ticks(2:end-1)); makerow(ticks(2:end-1))];
+                    yvals = [AutoAxis.Utilities.makerow(ticks(2:end-1)); AutoAxis.Utilities.makerow(ticks(2:end-1))];
                     xvals = repmat([hi; lo], 1, numel(ticks)-2);
                 end
                 
@@ -1979,7 +1979,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             % add handles to handle collections
-            hlist = cat(1, makecol(ht), makecol(hl), hb);
+            hlist = cat(1, AutoAxis.Utilities.makecol(ht), AutoAxis.Utilities.makecol(hl), hb);
             if useX
                 if ~otherSide
                     ax.addHandlesToCollection('belowX', hlist);
@@ -2562,7 +2562,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             AutoAxis.hideInLegend(hl);
             set(hl, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
             ht = AutoAxis.allocateHandleVector(nSpan);
-            keep = truevec(nSpan);
+            keep = AutoAxis.Utilities.truevec(nSpan);
             for i = 1:nSpan
                 if isempty(label{i})
                     keep(i) = false;
@@ -2615,8 +2615,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
             
-            ht = makecol(ht);
-            hl = makecol(hl);
+            ht = AutoAxis.Utilities.makecol(ht);
+            hl = AutoAxis.Utilities.makecol(hl);
             hlist = [hl; ht];
             if ~leaveInPlace
                 % add handles to handle collections
@@ -3174,8 +3174,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             nA = numel(ax.anchorInfoDeref);
                
             % gather info about each anchor once up front to save time
-            [specifiesSize, isX] = nanvec(nA);
-            [isHandleH, isHandleHa] = falsevec(nA);
+            [specifiesSize, isX] = AutoAxis.Utilities.nanvec(nA);
+            [isHandleH, isHandleHa] = AutoAxis.Utilities.falsevec(nA);
             posSpecified(nA) = PositionType.Top;
             posSpecified = posSpecified';
             for iA = 1:nA
@@ -3189,10 +3189,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % first loop through and build a matrix of direct handle
             % dependendencies to speed things up. 
-            [hCat, hWhichPartial] = TensorUtils.catWhichIgnoreEmpty(1, ax.anchorInfoDeref(isHandleH).h);
-            hWhich = TensorUtils.indicesIntoMaskToOriginalIndices(hWhichPartial, isHandleH);
-            [haCat, haWhichPartial] = TensorUtils.catWhichIgnoreEmpty(1, ax.anchorInfoDeref(isHandleHa).ha);
-            haWhich = TensorUtils.indicesIntoMaskToOriginalIndices(haWhichPartial, isHandleHa);
+            [hCat, hWhichPartial] = AutoAxis.TensorUtils.catWhichIgnoreEmpty(1, ax.anchorInfoDeref(isHandleH).h);
+            hWhich = AutoAxis.TensorUtils.indicesIntoMaskToOriginalIndices(hWhichPartial, isHandleH);
+            [haCat, haWhichPartial] = AutoAxis.TensorUtils.catWhichIgnoreEmpty(1, ax.anchorInfoDeref(isHandleHa).ha);
+            haWhich = AutoAxis.TensorUtils.indicesIntoMaskToOriginalIndices(haWhichPartial, isHandleHa);
                 
             % now build matrix hDepMat(i, j) = true if anchorInfo i uses as an
             % anchor a handle that is positioned/resized by anchorInfo j,
@@ -3488,7 +3488,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
     
     methods(Static)
         function newSet = setdiffHandles(set, drop)
-            maskDrop = falsevec(numel(set));
+            maskDrop = AutoAxis.Utilities.falsevec(numel(set));
             for iD = 1:numel(drop)
                 maskDrop( set == drop(iD) ) = true;
             end

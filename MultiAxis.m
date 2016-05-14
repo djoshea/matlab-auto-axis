@@ -119,10 +119,10 @@ classdef MultiAxis < handle
             % array
             if verLessThan('matlab','8.4.0')
                 mask = isvalid(hvec);
-                hvec = makecol(hvec(mask(:)));
+                hvec = AutoAxis.Utilities.makecol(hvec(mask(:)));
             else
                 mask = arrayfun(@(h) isvalid(h) && ~isa(h, 'matlab.graphics.GraphicsPlaceholder'), hvec);
-                hvec = makecol(hvec(mask(:)));
+                hvec = AutoAxis.Utilities.makecol(hvec(mask(:)));
             end
         end  
         
