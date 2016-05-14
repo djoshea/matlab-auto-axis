@@ -485,7 +485,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function p = getPanelForFigure(figh)
             % return a handle to the panel object associated with figure
             % figh or [] if not associated with a panel
-            p = panel.recover(figh);
+            try
+                p = panel.recover(figh);
+            catch
+                p = [];
+            end
 %             if isempty(p)
 %                 p = panel.recover(figh);
 %             end
