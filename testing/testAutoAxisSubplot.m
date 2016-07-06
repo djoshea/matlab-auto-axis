@@ -14,7 +14,7 @@ function testAutoAxisSubplot()
     p.de.margin = 0.4;
     p.setCallback(@callbackFn);
 
-    axh = nan(R,C);
+    axh = gobjects(R,C);
     au = cell(R,C);
 
     for r = 1:R

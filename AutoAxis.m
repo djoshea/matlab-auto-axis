@@ -20,6 +20,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         axisPaddingRight
         axisPaddingTop
         
+        % gap between axis limits (Position) and OuterPosition of axes
+        % only used when axis is not managed by panel
+        axisMargin % [left bottom right top] 
+        
         axisMarginLeft
         axisMarginBottom
         axisMarginRight
@@ -51,27 +55,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         % ticks and tick labels
         tickColor = [0 0 0];
-        tickLength = 0.1; % 0.15
-        tickLineWidth = 0.5; % not in centimeters, this is stroke width
+        tickLength % AutoAxis_TickLength
+        tickLineWidth % AutoAxis_TickLineWidth; % not in centimeters, this is stroke width
         tickFontColor
         tickFontSize
         
         % size of marker diameter
-        markerWidth = 0.15;
-        markerHeight = 0.15;
-        markerCurvature = 1; % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
+        markerWidth % AutoAxis_MarkerWidth [2*2.54/72]
+        markerHeight % AutoAxis_MarkerHeight [0.1]
+        markerCurvature % % AutoAxis_MarkerCurvature ; % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
         
         % interval thickness. Note that intervals should be thinner than
         % the marker diameter for the vertical alignment to work correctly 
         % Note that interval location and label location is determined by
         % markerDiameter
-        intervalThickness = 0.2;
+        intervalThickness % AutoAxis_IntervalThickness [0.08];
         
         % this controls both the gap between tick lines and tick labels,
         % and between tick labels and axis label offset
-        tickLabelOffset = 0.1; % cm
+        tickLabelOffset % AutoAxis_TickLabelOffset [0.1] cm
         
-        markerLabelOffset = 0.1; % cm
+        markerLabelOffset % AutoAxis_MarkerLabelOffset [0.1]; % cm
         
         % axis x/y labels
         labelFontSize
@@ -82,7 +86,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         titleFontColor
         
         % scale bar 
-        scaleBarThickness = 0.15; % cm
+        scaleBarThickness % AutoAxis_ScaleBarThickness [0.1] % cm
         xUnits = '';
         yUnits = '';
         
@@ -96,16 +100,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         debug = false;
         
-        gridBackground = [0.92 0.92 0.95]; % copying seaborn
+        gridBackground = [0.92 0.92 0.95]; % copying Seaborn
         gridColor = 'w';
         minorGridColor = [0.96 0.96 0.96];
     end
     
     properties(Hidden)
-        % gap between axis limits (Position) and OuterPosition of axes
-        % only used when axis is not managed by panel
-%         axisMargin = [2.5 2.5 1.5 1.5]; % [left bottom right top] 
-        axisMargin = [2 1.5 0.75 0.75]; % [left bottom right top] 
         % left: room for y-axis
         % bottom: room for x-axis
         % right: room for y-scale bar and label
@@ -127,6 +127,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
     end
     
     properties(SetAccess=protected)
+        axisMargin_I % holds data for axis margin
         requiresReconfigure = true;
         installedCallbacks = false;
         hListeners = [];
@@ -179,13 +180,32 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
         
         function set.axisMargin(ax, v)
-            if numel(v) == 1
-                ax.axisMargin = [v v v v];
+            if numel(v) == 0
+                ax.axisMargin_I = [];
+            elseif numel(v) == 1
+                ax.axisMargin_I = [v v v v];
             elseif numel(v) == 2 % assume horz, vert
-                ax.axisMargin = [AutoAxis.Utilities.makerow(v), AutoAxis.Utilities.makerow(v)];
+                ax.axisMargin_I = [AutoAxis.Utilities.makerow(v), AutoAxis.Utilities.makerow(v)];
             else
-                ax.axisMargin = AutoAxis.Utilities.makerow(v);
+                ax.axisMargin_I = AutoAxis.Utilities.makerow(v);
             end
+        end
+        
+        function v = get.axisMargin(ax)
+            if isempty(ax.axisMargin_I)
+                v = ax.getAxisMarginDefaults();
+            else
+                v = ax.axisMargin_I;
+            end
+        end
+             
+        function m = getAxisMarginDefaults(ax)
+            % compute reasonable auto margins based on axis font size
+            sz = get(ax.axh, 'FontSize') / 72 * 2.54;
+            szTop = sz * get(ax.axh, 'TitleFontSizeMultiplier');
+            szLabel = sz * get(ax.axh, 'LabelFontSizeMultiplier') * 1.3;
+            % left bottom right top
+            m = [4*szLabel 4*szLabel 2*szLabel 2*szTop];
         end
         
         function v = get.axisMarginLeft(ax)
@@ -352,6 +372,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
     end
     
     methods(Static)
+        
+        
         function hideInLegend(h)
             % prevent object h from appearing in legend by default
             for i = 1:numel(h)
@@ -616,6 +638,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             sz = get(ax.axh, 'FontSize');
             tc = get(ax.axh, 'DefaultTextColor');
             lc = get(ax.axh, 'DefaultLineColor');
+            
+            ax.tickLength = getenvNum('AutoAxis_TickLength', 0.1);
+            ax.tickLineWidth = getenvNum('AutoAxis_TickLineWidth', 0.5); % not in centimeters, this is stroke width
+            ax.markerWidth = getenvNum('AutoAxis_MarkerWidth', 2*2.54/72);
+            ax.markerHeight = getenvNum('AutoAxis_MarkerHeight', 0.11);
+            ax.markerCurvature = getenvNum('AutoAxis_MarkerCurvature', 0); % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
+            ax.intervalThickness = getenvNum('AutoAxis_IntervalThickness', 0.1);
+            ax.scaleBarThickness = getenvNum('AutoAxis_ScaleBarThickness', 0.08); % scale bars should be thinner than intervals since they sit on top
+            ax.tickLabelOffset  = getenvNum('AutoAxis_TickLabelOffset', 0.1);
+            ax.markerLabelOffset = getenvNum('AutoAxis_MarkerLabelOffset', 0.1); % cm
+            
             %ax.tickColor = lc;
             ax.tickFontSize = sz;
             ax.tickFontColor = tc;
@@ -629,6 +662,19 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 
             ax.mapLocationHandles = AutoAxis.allocateHandleVector(0);
             ax.mapLocationCurrent = {};
+            
+            function num = getenvNum(name, default)
+                val = getenv(name);
+                if isempty(val)
+                    num = default;
+                else
+                    num = str2double(val);
+                    if isnan(num)
+                        warning('AutoAxis:EnvironmentVariableInvalid', 'Environment variable %s invalid', name);
+                        num = default;
+                    end
+                end
+            end
         end
         
         function restoreDefaults(ax)
@@ -1149,8 +1195,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             ax.addTitle();
             
-            ax.axisMarginLeft = 0.1;
-            ax.axisMarginBottom = 1;
+            ax.axisMarginLeft = 0.1; % reduce the axis margin left since there won't be tickss
+%             ax.axisMarginBottom = 1;
             ax.update();
             ax.installCallbacks();
         end
@@ -1438,7 +1484,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function addAutoAxisY(ax, varargin)
             import AutoAxis.PositionType;
             if ~isempty(ax.autoAxisY)
-                firstTime = false;
+%                 firstTime = false;
                 % delete the old objects
                 try
                     delete(ax.autoAxisY.h);
@@ -1448,7 +1494,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % remove from handle collection
                 remove = ax.autoAxisY.h;
             else
-                firstTime = true;
+%                 firstTime = true;
                 remove = [];
             end
             
@@ -2009,7 +2055,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addRequired('x', @isscalar);
             p.addOptional('label', '', @ischar);
             p.addParameter('labelColor', ax.tickFontColor, @(x) isvector(x) || isempty(x) || ischar(x));
-            p.addParameter('marker', 'o', @(x) isempty(x) || ischar(x));
+            %p.addParameter('marker', 'o', @(x) isempty(x) || ischar(x));
             p.addParameter('markerColor', [0.1 0.1 0.1], @(x) isvector(x) || ischar(x) || isempty(x));
             p.addParameter('alpha', 1, @isscalar);
             p.addParameter('interval', [], @(x) isempty(x) || isvector(x)); % add a rectangle interval behind the marker to indicate a range of locations
@@ -2348,6 +2394,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             else
                 ax.addHandlesToCollection('hRightY', hlist);
             end
+            
+            % for uistacking
+            ax.addHandlesToCollection('scaleBars', hlist);
             
             % list as generated content
             ax.addHandlesToCollection('generated', hlist);
@@ -2886,6 +2935,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 bringToTop(hvec);
             end
             
+            hvec = ax.getHandlesInCollection('scaleBars');
+            if ~isempty(hvec)
+                hvec = hvec(isvalid(hvec));
+                bringToTop(hvec);
+            end
+            
             hvec = ax.getHandlesInCollection('topLayer');
             if ~isempty(hvec)
                 hvec = hvec(isvalid(hvec));
@@ -3180,8 +3235,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % gather info about each anchor once up front to save time
             [specifiesSize, isX] = AutoAxis.Utilities.nanvec(nA);
             [isHandleH, isHandleHa] = AutoAxis.Utilities.falsevec(nA);
-            posSpecified(nA) = PositionType.Top;
-            posSpecified = posSpecified';
+            posSpecified = repmat(PositionType.Top, nA, 1);
             for iA = 1:nA
                 a = ax.anchorInfoDeref(iA);
                 specifiesSize(iA) = a.pos.specifiesSize();
