@@ -639,10 +639,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             tc = get(ax.axh, 'DefaultTextColor');
             lc = get(ax.axh, 'DefaultLineColor');
             
-            ax.tickLength = getenvNum('AutoAxis_TickLength', 0.1);
+            ax.tickLength = getenvNum('AutoAxis_TickLength', 0.05);
             ax.tickLineWidth = getenvNum('AutoAxis_TickLineWidth', 0.5); % not in centimeters, this is stroke width
             ax.markerWidth = getenvNum('AutoAxis_MarkerWidth', 2*2.54/72);
-            ax.markerHeight = getenvNum('AutoAxis_MarkerHeight', 0.11);
+            ax.markerHeight = getenvNum('AutoAxis_MarkerHeight', 0.12);
             ax.markerCurvature = getenvNum('AutoAxis_MarkerCurvature', 0); % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
             ax.intervalThickness = getenvNum('AutoAxis_IntervalThickness', 0.1);
             ax.scaleBarThickness = getenvNum('AutoAxis_ScaleBarThickness', 0.08); % scale bars should be thinner than intervals since they sit on top
