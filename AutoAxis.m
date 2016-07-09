@@ -2784,6 +2784,194 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % list as generated content
             ax.addHandlesToCollection('generated', hvec);
         end
+        
+        function [hl, ht] = addLocationIndicator(ax, varargin)
+            % for drawing small ticks near the edge of an axis, e.g. to indicate
+            % the mean or median of a distribution
+            import AutoAxis.PositionType;
+            
+            p = inputParser();
+            p.addRequired('which', @ischar);
+            p.addRequired('location', @isscalar);
+            p.addOptional('label', '', @ischar);
+            p.addParameter('fontSize', ax.tickFontSize, @isscalar);
+            p.addParameter('otherSide', false, @isscalar); % if true, place top / right, false place at bottom / left
+            p.addParameter('length', 0.5, @isscalar); % in cm
+            p.addParameter('extendFromEdge', 0, @isscalar); % in cm
+            p.addParameter('labelColor', ax.tickFontColor, @(x) isvector(x) || isempty(x) || ischar(x));
+            p.addParameter('lineWidth', get(ax.axh, 'DefaultLineLineWidth'), @isscalar);
+            p.addParameter('color', [0.1 0.1 0.1], @(x) isvector(x) || ischar(x) || isempty(x));
+            p.addParameter('alpha', 1, @isscalar);
+            p.addParameter('textOffset', 0.1, @isscalar);
+            p.addParameter('horizontalAlignment', '', @ischar);
+            p.addParameter('verticalAlignment', '', @ischar);
+            p.CaseSensitive = false;
+            p.parse(varargin{:});
+            
+            label = p.Results.label;
+            
+            if strcmp(p.Results.which, 'x')
+                isX = true;
+            else
+                isX = false;
+            end
+            loc = p.Results.location;
+            otherSide = p.Results.otherSide;
+            extendFromEdge = p.Results.extendFromEdge;
+            length = p.Results.length;
+            
+            yl = get(ax.axh, 'YLim'); dely = yl(2) - yl(1);
+            xl = get(ax.axh, 'XLim'); delx = xl(2) - xl(1);
+           
+            if isX
+                x = [loc;loc];
+                if ~otherSide
+                    y = [yl(2) - dely/10; yl(2)];
+                    ypos = yl(2);
+                else
+                    y = [yl(1); yl(1) + dely/10];
+                    ypos = yl(1);
+                end
+                xpos = loc;
+            else
+                y = [loc;loc];
+                ypos = loc;
+                if ~otherSide
+                    x = [xl(2) - delx/10; xl(2)];
+                    xpos = xl(2);
+                else
+                    x = [xl(1); xl(1) + delx/10];
+                    xpos = xl(1);
+                end
+            end
+            
+            hl = line(x, y, 'LineWidth', p.Results.lineWidth, 'Color', p.Results.color, 'YLimInclude', 'off', ...
+                'XLimInclude', 'off', 'Clipping', 'off', 'Parent', ax.axhDraw);
+            hl.Color(4) = p.Results.alpha;
+            AutoAxis.hideInLegend(hl);
+            
+            ha = p.Results.horizontalAlignment;
+            va = p.Results.verticalAlignment;
+            
+            if isX
+                if otherSide
+                    % bottom
+                    if isempty(ha), ha = 'left'; end
+                    va = 'bottom';
+                else
+                    % top
+                    if isempty(ha), ha = 'left'; end
+                    va = 'top';
+                end
+            else
+                if otherSide
+                    % left
+                    ha = 'left';
+                    if isempty(va), va = 'bottom'; end
+                else
+                    % right
+                    ha = 'right';
+                    if isempty(va), va = 'bottom'; end
+                end
+            end
+                
+            
+            % label
+            ht = text(xpos, ypos, p.Results.label, ...
+                'FontSize', p.Results.fontSize, 'Color', p.Results.labelColor, ...
+                'HorizontalAlignment', ha, ...
+                'VerticalAlignment', va, ...
+                'Parent', ax.axhDraw, 'Interpreter', 'none', 'BackgroundColor', 'none');
+            set(ht, 'Clipping', 'off', 'Margin', 0.001);
+            
+            % anchor both text and line to edge of axis
+            if isX
+                if otherSide
+                    % anchor to bottom of axis
+                    ai = AutoAxis.AnchorInfo(hl, PositionType.Bottom, ...
+                        ax.axh, PositionType.Bottom, extendFromEdge, ...
+                        sprintf('locationIndicator with label ''%s'' to bottom of axis', label));
+                    at = AutoAxis.AnchorInfo(ht, PositionType.Bottom, ...
+                        ax.axh, PositionType.Bottom, extendFromEdge, ...
+                        sprintf('locationIndicator text label ''%s'' to bottom of axis', label));
+                else
+                    % anchor to top of axis
+                    ai = AutoAxis.AnchorInfo([hl], PositionType.Top, ...
+                        ax.axh, PositionType.Top, extendFromEdge, ...
+                        sprintf('locationIndicator with label ''%s'' to top of axis', label));
+                    at = AutoAxis.AnchorInfo(ht, PositionType.Top, ...
+                        ax.axh, PositionType.Top, extendFromEdge, ...
+                        sprintf('locationIndicator text label ''%s'' to top of axis', label));
+                end
+                ai2 = AutoAxis.AnchorInfo(hl, PositionType.Height, [], length, 0, sprintf('locationIndicator label ''%s'' height', label));
+            else
+                if otherSide
+                    % anchor to left of axis
+                    ai = AutoAxis.AnchorInfo(hl, PositionType.Left, ...
+                        ax.axh, PositionType.Left, extendFromEdge, ...
+                        sprintf('locationIndicator with label ''%s'' to left of axis', label));
+                    at = AutoAxis.AnchorInfo(ht, PositionType.Left, ...
+                        ax.axh, PositionType.Left, extendFromEdge, ...
+                        sprintf('locationIndicator text label ''%s'' to left of axis', label));
+                else
+                    % anchor to right of axis
+                    ai = AutoAxis.AnchorInfo(hl, PositionType.Right, ...
+                        ax.axh, PositionType.Right, extendFromEdge, ...
+                        sprintf('locationIndicator label ''%s'' to right of axis', label));
+                    at = AutoAxis.AnchorInfo(ht, PositionType.Right, ...
+                        ax.axh, PositionType.Right, extendFromEdge, ...
+                        sprintf('locationIndicator label ''%s'' to right of axis', label));
+                end
+                ai2 = AutoAxis.AnchorInfo(hl, PositionType.Width, [], length, 0, sprintf('locationIndicator label ''%s'' width', label));
+            end
+            ax.addAnchor(ai);
+            ax.addAnchor(at);
+            ax.addAnchor(ai2);
+
+            % add offset to label
+            if p.Results.textOffset ~= 0
+                if isX
+                    % offset horizontally
+                    pos = PositionType.horizontalAlignmentToPositionType(ha);
+                    ai = AutoAxis.AnchorInfo(ht, pos, ...
+                        xpos, PositionType.Literal, p.Results.textOffset, ...
+                        sprintf('locationIndicator label ''%s'' horizontal offset %g from X=%g', ...
+                        label, p.Results.textOffset, xpos));
+                    ax.addAnchor(ai);
+                else
+                    pos = PositionType.verticalAlignmentToPositionType(va);
+                    ai = AutoAxis.AnchorInfo(ht, pos, ...
+                        ypos, PositionType.Literal, p.Results.textOffset, ...
+                        sprintf('locationIndicator label ''%s'' vertical offset %g from Y=%g', ...
+                        label, p.Results.textOffset, ypos));
+                    ax.addAnchor(ai);
+                end
+            end
+                   
+            hlist = [hl; ht];
+            
+            % list as generated content
+            ax.addHandlesToCollection('generated', hlist);
+            
+            % put in top layer
+            ax.addHandlesToCollection('markers', hlist);
+        end
+        
+        function [hl, ht] = addLocationIndicatorTop(ax, varargin)
+            [hl, ht] = ax.addLocationIndicator('x', varargin{:}); 
+        end
+        
+        function [hl, ht] = addLocationIndicatorBottom(ax, varargin)
+            [hl, ht] = ax.addLocationIndicator('x', varargin{:}, 'otherSide', true); 
+        end
+        
+        function [hl, ht] = addLocationIndicatorRight(ax, varargin)
+            [hl, ht] = ax.addLocationIndicator('y', varargin{:}); 
+        end
+        
+        function [hl, ht] = addLocationIndicatorLeft(ax, varargin)
+            [hl, ht] = ax.addLocationIndicator('y', varargin{:}, 'otherSide', true); 
+        end
     end
     
     methods
