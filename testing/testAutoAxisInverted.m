@@ -32,6 +32,7 @@ ylabel('Y Label');
 title('Plot Title');
 
 au.addAutoAxisY();
+au.addAutoAxisX();
 % au.addTicklessLabels('y', 'tick', -5:5);
 %au.addTitle();
 
@@ -72,7 +73,7 @@ au.addAutoScaleBarY();
 
 axis off
 au.update();
-au.installCallbacks();
+% au.installCallbacks();
 
 auVec(i) = au;
 

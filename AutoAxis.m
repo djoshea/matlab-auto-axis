@@ -1688,7 +1688,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             hlabel = get(ax.axh, 'Title');
             set(hlabel, 'FontSize', ax.titleFontSize, 'Color', ax.titleFontColor, ...
                 'Margin', 0.1, 'HorizontalAlign', 'center', ...
-                'VerticalAlign', 'bottom');
+                'VerticalAlign', 'bottom', 'BackgroundColor', 'none');
             if ax.debug
                 set(hlabel, 'EdgeColor', 'r');
             end
@@ -1823,7 +1823,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('tick', [], @isvector);
             p.addParameter('tickLabel', {}, @(x) isempty(x) || iscellstr(x));
             p.addParameter('tickAlignment', [], @(x) isempty(x) || iscellstr(x));
-            p.addParameter('tickRotation', 0, @isscalar);
+            p.addParameter('tickRotation', NaN, @isscalar);
             p.addParameter('useAutoAxisCollections', false, @islogical);
             p.addParameter('addAnchors', true, @islogical);
             p.addParameter('otherSide', false, @islogical);
@@ -1834,17 +1834,19 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             axh = ax.axh; %#ok<*PROPLC,*PROP>
             useX = strcmp(p.Results.orientation, 'x');
             otherSide = p.Results.otherSide;
-            
+
             if ~isempty(p.Results.tick)
                 ticks = p.Results.tick;
                 labels = p.Results.tickLabel;
             else
                 if useX
                     ticks = get(axh, 'XTick');
+                    labels = get(axh, 'XTickLabel');
                 else
                     ticks = get(axh, 'YTick');
+                    labels = get(axh, 'YTickLabel');
                 end
-                labels = {};
+                
                 %labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
 %                 labels = strtrim(mat2cell(labels, ones(size(labels,1),1), size(labels, 2)));
             end
@@ -1869,13 +1871,25 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %             tickLen = ax.tickLength;
             lineWidth = ax.tickLineWidth;
             tickRotation = p.Results.tickRotation;
+            if isnan(tickRotation)
+                if useX
+                    tickRotation = get(axh, 'XTickLabelRotation');
+                else
+                    tickRotation = get(axh, 'YTickLabelRotation');
+                end
+            end
             color = ax.tickColor;
             fontSize = ax.tickFontSize;
             
             % generate line, ignore length here, we'll anchor that later
             if useX
-                hi = 1;
-                lo = 0;
+                if ax.yReverse
+                    hi = 0;
+                    lo = 1;
+                else
+                    hi = 1;
+                    lo = 0;
+                end
                 
                 % to get nice line caps on the edges, merge the edge ticks
                 % with the bridge
@@ -1902,8 +1916,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             else
                 % y axis ticks
-                lo = 0;
-                hi = 1;
+                if ax.xReverse
+                    lo = 1;
+                    hi = 0;
+                else
+                    lo = 0;
+                    hi = 1;
+                end
                 
                 if numel(ticks) > 2
                     yvals = [AutoAxis.Utilities.makerow(ticks(2:end-1)); AutoAxis.Utilities.makerow(ticks(2:end-1))];
@@ -3087,7 +3106,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 ax.axh.YRuler.Visible = 'off';
                 
                 % use a dark background with light grid lines
-                ax.axh.Color = ax.backgroundColor;
+                if ~isempty(ax.backgroundColor)
+                    ax.axh.Color = ax.backgroundColor;
+                end
                 ax.axh.GridColor = ax.gridColor;
                 ax.axh.GridAlpha = 1;
                 ax.axh.MinorGridColor = ax.minorGridColor;
@@ -3145,6 +3166,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 ax.hYLabel = get(ax.axh, 'YLabel');
                 set(ax.hYLabel, 'Visible', 'on');
             end
+            
+            % remove the background color from the labels
+            set([get(ax.axh, 'XLabel'); get(ax.axh, 'YLabel'); get(ax.axh, 'Title')], 'BackgroundColor', 'none');
 
             if ~isempty(ax.anchorInfo)                
                 % dereference all anchors into .anchorInfoDeref
