@@ -64,6 +64,14 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
         function tf = get.isHandleHa(info)
              tf = ~isempty(info.ha) && all(~ischar(info.ha)) && ~iscellstr(info.ha) && info.posa ~= AutoAxis.PositionType.Literal;
         end
+        
+        function h = get.h(info)
+            h = AutoAxis.Utilities.makecol(info.h);
+        end
+        
+        function ha = get.ha(info)
+            ha = AutoAxis.Utilities.makecol(info.ha);
+        end
     end
         
 end

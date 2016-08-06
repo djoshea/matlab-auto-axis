@@ -47,6 +47,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         decorationLabelOffsetRight
     end
 
+    % specify default aspects of layout and appearance
     properties
         % units used by all properties and anchor measurements
         % set this before creating any anchors
@@ -106,6 +107,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         minorGridColor = [0.96 0.96 0.96];
     end
     
+    % internal properties, mainly accessed through left/right/top/bottom
+    % accessors
     properties(Hidden)
         % left: room for y-axis
         % bottom: room for x-axis
@@ -127,6 +130,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         decorationLabelOffset = [0.1 0.05 0.1 0.1]; % cm
     end
     
+    % internal properties
     properties(SetAccess=protected)
         axisMargin_I % holds data for axis margin
         requiresReconfigure = true;
@@ -386,7 +390,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         yReverse % true/false if yDir is reverse
     end
     
-    methods
+    methods % Constructor
         function ax = AutoAxis(axh)
             if nargin < 1 || isempty(axh)
                 axh = gca;
@@ -396,9 +400,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
     end
     
-    methods(Static)
-        
-        
+    methods(Static) % Static utils and figure specific functions
         function hideInLegend(h)
             % prevent object h from appearing in legend by default
             for i = 1:numel(h)
@@ -588,14 +590,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
     end
     
-    methods(Static)
+    methods(Static) % Loading from disk
         function ax = loadobj(ax)
             % defer reconfiguring until we have our figure set as parent
             ax.hListeners = addlistener(ax.axh, {'Parent'}, 'PostSet', @(varargin) ax.reconfigurePostLoad);
         end
     end
     
-    methods % Installation, callbacks, tagging, collections
+    methods % Installation, uninstallation, callbacks, tagging, collections
         function ax = saveobj(ax)
             if ax.installedCallbacks
                 ax.uninstallCallbacksForSave();
@@ -836,7 +838,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             isActive = ~isempty(hax) && ~isempty(hfig);
         end
         
-         function uninstall(ax)
+        function uninstall(ax)
             ax.uninstallCallbacks();
             ax.uninstallClaListener();
         end
@@ -1229,7 +1231,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
     end
 
-    methods % Annotation configuration
+    methods % Pre-configured annotations and widgets to the axis
         function reset(ax)
         	ax.removeAutoAxisX();
             ax.removeAutoAxisY();
@@ -3061,7 +3063,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
     end
     
-    methods
+    methods % Anchor specific 
         function addAnchor(ax, info)
             ind = numel(ax.anchorInfo) + 1;
             % sort here so that we can use ismembc later
