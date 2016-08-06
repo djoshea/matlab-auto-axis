@@ -3063,6 +3063,64 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
     end
     
+    methods % Anchor objects to axis border
+        function anchorToAxisTopLeft(ax, h, varargin)
+            p = inputParser();
+            p.addParameter('offsetX', 0, @isscalar);
+            p.addParameter('offsetY', 0, @isscalar);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.Top, ax.axh, PositionType.Top, -p.Results.offsetY);
+            ax.addAnchor(ai);
+            ai = AnchorInfo(h, PositionType.Left, ax.axh, PositionType.Left, -p.Results.offsetX);
+            ax.addAnchor(ai);
+        end
+        
+        function anchorToAxisTopRight(ax, h, varargin)
+            p = inputParser();
+            p.addParameter('offsetX', 0, @isscalar);
+            p.addParameter('offsetY', 0, @isscalar);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.Top, ax.axh, PositionType.Top, -p.Results.offsetY);
+            ax.addAnchor(ai);
+            ai = AnchorInfo(h, PositionType.Right, ax.axh, PositionType.Right, -p.Results.offsetX);
+            ax.addAnchor(ai);
+        end
+        
+        function anchorToAxisBottomRight(ax, h, varargin)
+            p = inputParser();
+            p.addParameter('offsetX', 0, @isscalar);
+            p.addParameter('offsetY', 0, @isscalar);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.Bottom, ax.axh, PositionType.Bottom, -p.Results.offsetY);
+            ax.addAnchor(ai);
+            ai = AnchorInfo(h, PositionType.Right, ax.axh, PositionType.Right, -p.Results.offsetX);
+            ax.addAnchor(ai);
+        end
+        
+        function anchorToAxisBottomLeft(ax, h, varargin)
+            p = inputParser();
+            p.addParameter('offsetX', 0, @isscalar);
+            p.addParameter('offsetY', 0, @isscalar);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.Bottom, ax.axh, PositionType.Bottom, -p.Results.offsetY);
+            ax.addAnchor(ai);
+            ai = AnchorInfo(h, PositionType.Left, ax.axh, PositionType.Left, -p.Results.offsetX);
+            ax.addAnchor(ai);
+        end
+    end
+    
     methods % Anchor specific 
         function addAnchor(ax, info)
             ind = numel(ax.anchorInfo) + 1;
