@@ -1555,19 +1555,21 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function addAutoAxisX(ax, varargin)
             import AutoAxis.PositionType;
             if ~isempty(ax.autoAxisX)
-                firstTime = false;
+%                 firstTime = false;
                 
                 % delete the old axes
                 try delete(ax.autoAxisX.h); catch, end
                 remove = ax.autoAxisX.h;
             else
-                firstTime = true;
+%                 firstTime = true;
                 remove = [];
             end
             
+%             firstTime = true; % we're always re-adding the anchors 
+            
             hlist = ax.addTickBridge('x', ...
                 'useAutoAxisCollections', true, ...
-                'addAnchors', firstTime, ...
+                'addAnchors', true, ...
                 'otherSide', strcmp(ax.axh.XAxisLocation, 'top'));
             ax.autoAxisX.h = hlist;
             
@@ -1575,9 +1577,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % so that anchors aren't deleted
             ax.removeHandles(remove);
             
-            if firstTime
-                ax.addXLabel();
-            end
+            ax.addXLabel();
         end
         
         function removeAutoAxisX(ax, varargin)
@@ -1898,11 +1898,19 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if useX
                     ticks = get(axh, 'XTick');
                     labels = get(axh, 'XTickLabel');
+                    if numel(labels) ~= numel(ticks)
+                        labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
+                    end
                 else
                     ticks = get(axh, 'YTick');
                     labels = get(axh, 'YTickLabel');
+                    if numel(labels) ~= numel(ticks)
+%                         set(axh, 'YTickLabel', {}, 'YTickLabelMode', 'auto');
+                        labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
+%                         labels = get(axh, 'YTickLabel');
+                    end    
                 end
-                
+                 
                 %labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
 %                 labels = strtrim(mat2cell(labels, ones(size(labels,1),1), size(labels, 2)));
             end
