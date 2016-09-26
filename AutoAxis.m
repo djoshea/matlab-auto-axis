@@ -56,7 +56,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         backgroundColor
         
         % ticks and tick labels
-        tickColor = [0 0 0];
+        tickColor
         tickLength % AutoAxis_TickLength
         tickLineWidth % AutoAxis_TickLineWidth; % not in centimeters, this is stroke width
         tickFontColor
@@ -122,7 +122,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         % top: room for title
         
         % spacing between axes and any ticks, lines, marks along each axis
-        axisPadding = [0.1 0.1 0.1 0.1]; % [left bottom right top] 
+        axisPadding % [left bottom right top] 
      
         % when x or y label is anchored to the axis directly, these offsets
         % are used. This will be the case if addXLabelAnchoredToAxis is
@@ -190,6 +190,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.axisPadding(4) = v;
         end
         
+        function v = get.axisPadding(ax)
+            v = ax.axisPadding;
+            if isempty(v)
+                v = AutoAxis.getenvVec('AutoAxis_DefaultPadding', [0.1 0.1 0.1 0.1]);
+            end
+        end 
+        
         function set.axisMargin(ax, v)
             if numel(v) == 0
                 ax.axisMargin_I = [];
@@ -212,11 +219,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
              
         function m = getAxisMarginDefaults(ax)
             % compute reasonable auto margins based on axis font size
+            
             sz = get(ax.axh, 'FontSize') / 72 * 2.54;
             szTop = sz * get(ax.axh, 'TitleFontSizeMultiplier');
             szLabel = sz * get(ax.axh, 'LabelFontSizeMultiplier') * 1.3;
             % left bottom right top
             m = [4*szLabel 4*szLabel 2*szLabel 2*szTop];
+            
+            % override with environment var if different
+            m = AutoAxis.getenvVec('AutoAxis_DefaultMargins', m);
         end
         
         function v = get.axisMarginLeft(ax)
@@ -668,23 +679,34 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.anchorInfoDeref = [];
             ax.collections = struct();
             
+            ax.restoreDefaults();
+
+            ax.mapLocationHandles = AutoAxis.allocateHandleVector(0);
+            ax.mapLocationCurrent = {};
+        end
+        
+        function restoreDefaults(ax)
+            ax.axh.FontSize = get(groot, 'DefaultAxesFontSize');
+            set(ax.axh, 'DefaultTextColor', get(groot, 'DefaultTextColor'));
+            set(ax.axh, 'DefaultLineColor', get(groot, 'DefaultLineColor'));
+            
             sz = get(ax.axh, 'FontSize');
             tc = get(ax.axh, 'DefaultTextColor');
             lc = get(ax.axh, 'DefaultLineColor');
             
-            ax.tickLength = getenvNum('AutoAxis_TickLength', 0.05);
-            ax.tickLineWidth = getenvNum('AutoAxis_TickLineWidth', 0.5); % not in centimeters, this is stroke width
-            ax.markerWidth = getenvNum('AutoAxis_MarkerWidth', 2*2.54/72);
-            ax.markerHeight = getenvNum('AutoAxis_MarkerHeight', 0.12);
-            ax.markerCurvature = getenvNum('AutoAxis_MarkerCurvature', 0); % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
-            ax.intervalThickness = getenvNum('AutoAxis_IntervalThickness', 0.1);
-            ax.scaleBarThickness = getenvNum('AutoAxis_ScaleBarThickness', 0.08); % scale bars should be thinner than intervals since they sit on top
-            ax.tickLabelOffset  = getenvNum('AutoAxis_TickLabelOffset', 0.1);
-            ax.markerLabelOffset = getenvNum('AutoAxis_MarkerLabelOffset', 0.1); % cm
+            ax.tickLength = AutoAxis.getenvNum('AutoAxis_TickLength', 0.05);
+            ax.tickLineWidth = AutoAxis.getenvNum('AutoAxis_TickLineWidth', 0.5); % not in centimeters, this is stroke width
+            ax.markerWidth = AutoAxis.getenvNum('AutoAxis_MarkerWidth', 2*2.54/72);
+            ax.markerHeight = AutoAxis.getenvNum('AutoAxis_MarkerHeight', 0.12);
+            ax.markerCurvature = AutoAxis.getenvNum('AutoAxis_MarkerCurvature', 0); % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
+            ax.intervalThickness = AutoAxis.getenvNum('AutoAxis_IntervalThickness', 0.1);
+            ax.scaleBarThickness = AutoAxis.getenvNum('AutoAxis_ScaleBarThickness', 0.08); % scale bars should be thinner than intervals since they sit on top
+            ax.tickLabelOffset  = AutoAxis.getenvNum('AutoAxis_TickLabelOffset', 0.1);
+            ax.markerLabelOffset = AutoAxis.getenvNum('AutoAxis_MarkerLabelOffset', 0.1); % cm
             
             ax.backgroundColor = get(0, 'DefaultAxesColor');
             
-            %ax.tickColor = lc;
+            ax.tickColor = lc;
             ax.tickFontSize = sz;
             ax.tickFontColor = tc;
             ax.labelFontColor = tc;
@@ -694,38 +716,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.scaleBarColor = lc;
             ax.scaleBarFontSize = sz;
             ax.scaleBarFontColor = tc;
-
-            ax.mapLocationHandles = AutoAxis.allocateHandleVector(0);
-            ax.mapLocationCurrent = {};
             
-            function num = getenvNum(name, default)
-                val = getenv(name);
-                if isempty(val)
-                    num = default;
-                else
-                    num = str2double(val);
-                    if isnan(num)
-                        warning('AutoAxis:EnvironmentVariableInvalid', 'Environment variable %s invalid', name);
-                        num = default;
-                    end
-                end
-            end
-        end
-        
-        function restoreDefaults(ax)
-            sz = get(0, 'DefaultAxesFontSize');
-            tc = get(0, 'DefaultTextColor');
-            lc = get(0, 'DefaultLineColor');
-            
-            ax.tickFontSize = sz;
-            ax.tickFontColor = tc;
-            ax.labelFontColor = tc;
-            ax.labelFontSize = sz;
-            ax.titleFontSize = sz;
-            ax.titleFontColor = tc;
-            ax.scaleBarColor = lc;
-            ax.scaleBarFontSize = sz;
-            ax.scaleBarFontColor = tc;
+            ax.axisMargin = [];
+            ax.axisPadding = [];
         end
              
         function installInstanceForAxis(ax, axh)
@@ -1234,6 +1227,32 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %             ax.axisMarginBottom = 1;
             ax.update();
             ax.installCallbacks();
+        end
+        
+        function num = getenvNum(name, default)
+            val = getenv(name);
+            if isempty(val)
+                num = default;
+            else
+                num = str2double(val);
+                if isnan(num)
+                    warning('AutoAxis:EnvironmentVariableInvalid', 'Environment variable %s invalid', name);
+                    num = default;
+                end
+            end
+        end
+        
+        function vec = getenvVec(name, default)
+            val = getenv(name);
+            if isempty(val)
+                vec = default;
+            else
+                vec = str2vector(val);
+                if isnan(vec)
+                    warning('AutoAxis:EnvironmentVariableInvalid', 'Environment variable %s invalid', name);
+                    vec = default;
+                end
+            end
         end
     end
 
@@ -3669,9 +3688,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 
                 % lookup margin as property value or function handle
                 if ischar(info.margin)
-                    info.margin = ax.(info.margin);
+                    try
+                        info.margin = ax.(info.margin);
+                    catch
+                        warning('Could not evaluate property %s', info.margin);
+                    end
                 elseif isa(info.margin, 'function_handle')
-                    info.margin = info.margin(ax, info);
+                    try
+                        info.margin = info.margin(ax, info);
+                    catch
+                        warning('Could not evaluate function handle for margin on on anchor %s', info.desc);
+                        info.margin = 0;
+                    end
                 end
                 
                 % look property or eval fn() for .pos or .posa
@@ -3682,9 +3710,20 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 
                 if ischar(info.posa)
-                    info.posa = ax.(info.posa);
+                    try
+                        info.posa = ax.(info.posa);
+                    catch
+                        warning('Could not find property %s', info.posa);
+                        info.posa = 1;
+                    end
                 elseif isa(info.posa, 'function_handle')
-                    info.posa = info.posa(ax, info);
+                    try
+                        info.posa = info.posa(ax, info);
+                    catch
+                        warning('Could not evaluate function handle for posa on on anchor %s', info.desc);
+                        info.posa = AutoAxis.PositionType.Top;
+                    end
+                    
                 end
             end
             
