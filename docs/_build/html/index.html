@@ -1,0 +1,357 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>AutoAxis Documentation &mdash; AutoAxis 0.5.1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="genindex.html"/>
+        <link rel="search" title="Search" href="search.html"/>
+    <link rel="top" title="AutoAxis 0.5.1 documentation" href="#"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="#" class="icon icon-home"> AutoAxis
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.5
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <!-- Local TOC -->
+                <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">AutoAxis Documentation</a></li>
+<li><a class="reference internal" href="#autoaxis">AutoAxis</a><ul>
+<li><a class="reference internal" href="#module-autoaxis.+AutoAxis">AutoAxis Package</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+</div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="#">AutoAxis</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="#">Docs</a> &raquo;</li>
+      
+    <li>AutoAxis Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="autoaxis-documentation">
+<h1>AutoAxis Documentation<a class="headerlink" href="#autoaxis-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+<div class="section" id="autoaxis">
+<span id="id1"></span><h1>AutoAxis<a class="headerlink" href="#autoaxis" title="Permalink to this headline">¶</a></h1>
+<p>AutoAxis is a Matlab library for drawing custom axis decorations to 2D figure axes. AutoAxis attaches to an axis and provides many pre-built decorations such as:</p>
+<blockquote>
+<div><ul class="simple">
+<li>despined axes tick marks (which are offset from the axis box by a fixed distance) which automaticaly update with the axis limits and major tick marks.</li>
+<li>scale bars along the X and Y axis labeled with custom units.</li>
+<li>labeled markers along the axis, e.g. for identifying key timepoints on a time axis</li>
+<li>labeled spans and intervals to identify groups of plotted items, such as vertically stacked timeseries or trials in a spike raster.</li>
+</ul>
+</div></blockquote>
+<p>Each of these high-level pre-configured decorations are built using AutoAxis&#8217;s low level functionality, which is also accessible directly to the user. AutoAxis allows the user to specify a set of <cite>anchors</cite> that should be maintained as the figure is resized or the axes zoomed or panned. Some examples of anchors:</p>
+<blockquote>
+<div><ul class="simple">
+<li>The top edge of a text box should be located 1.5 mm below the bottom edge of the axis</li>
+<li>The width of a rectangle should be 4 mm</li>
+<li>The right edge of a line should be located 2 mm left of the left edge of the axis</li>
+<li>The vertical center of a line marker (<code class="docutils literal"><span class="pre">'o'</span></code>) should be located 3 mm below the bottom of the axis.</li>
+</ul>
+</div></blockquote>
+<p>All offsets, sizes, and positions are specified directly in paper units, in centimeters, and AutoAxis takes care of adjusting the positions of everything on the axis to match these paper units. This facilitates an extraordinary degree of consistency across generated figures.</p>
+<p>AutoAxis prefers explicit settings over automagically determined offsets and spacing. Matlab axes by default will adjust to accommodate tick marks and axis labels, which can be convenient for a single axis but can create inconsistencies and misalignment when multiple plots are combined in a single figure. AutoAxis allows the user to manually specify the margins and padding around each axis, although reasonable defaults are provided. All defaults can be either using the default Matlab <code class="docutils literal"><span class="pre">set(groot,</span> <span class="pre">'Default...',</span> <span class="pre">...)</span></code> mechanism or specified as environment variables (using <code class="docutils literal"><span class="pre">setenv</span></code>).</p>
+<div class="section" id="module-autoaxis.+AutoAxis">
+<span id="autoaxis-package"></span><span id="testbookmark"></span><h2>AutoAxis Package<a class="headerlink" href="#module-autoaxis.+AutoAxis" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="autoaxis.+AutoAxis.PositionType">
+<em class="property">class Enumeration</em><code class="descclassname">AutoAxis.</code><code class="descname">PositionType</code><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref mat mat-class docutils literal"><span class="pre">uint32</span></code></p>
+<div class="note admonition" id="autoaxis-autoaxis-positiontype-positiontype-member-group-0-autoaxis-autoaxis-positiontype-positiontype-member-group-0">
+<p class="first admonition-title">Enumeration</p>
+<p class="last">&#8211;</p>
+</div>
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.Top">
+<code class="descname">Top</code><em class="property"> = 1</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.Top"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.Top" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.Bottom">
+<code class="descname">Bottom</code><em class="property"> = 2</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.Bottom"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.Bottom" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.VCenter">
+<code class="descname">VCenter</code><em class="property"> = 3</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.VCenter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.VCenter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.Height">
+<code class="descname">Height</code><em class="property"> = 4</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.Height"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.Height" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.Left">
+<code class="descname">Left</code><em class="property"> = 5</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.Left"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.Left" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.Right">
+<code class="descname">Right</code><em class="property"> = 6</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.Right"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.Right" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.HCenter">
+<code class="descname">HCenter</code><em class="property"> = 7</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.HCenter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.HCenter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.Width">
+<code class="descname">Width</code><em class="property"> = 8</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.Width"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.Width" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.Literal">
+<code class="descname">Literal</code><em class="property"> = 9</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.Literal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.Literal" title="Permalink to this definition">¶</a></dt>
+<dd><p>references an actual location in data coordinates on either X or Y axis. e.g. to implement a rightwards offset from X=20</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="autoaxis.+AutoAxis.PositionType.MarkerDiameter">
+<code class="descname">MarkerDiameter</code><em class="property"> = 10</em><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.MarkerDiameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.MarkerDiameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>size the height/width of the marker on a line object</p>
+</dd></dl>
+
+<div class="note admonition" id="autoaxis-autoaxis-positiontype-positiontype-member-group-1-autoaxis-autoaxis-positiontype-positiontype-member-group-1">
+<p class="first admonition-title">Methods</p>
+<p class="last">&#8211;</p>
+</div>
+<dl class="method">
+<dt id="autoaxis.+AutoAxis.PositionType.getDirectField">
+[<em>field</em>] = <code class="descname">getDirectField</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.getDirectField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.getDirectField" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="autoaxis.+AutoAxis.PositionType.isX">
+[<em>tf</em>] = <code class="descname">isX</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.isX"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.isX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="autoaxis.+AutoAxis.PositionType.isY">
+[<em>tf</em>] = <code class="descname">isY</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.isY"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.isY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="autoaxis.+AutoAxis.PositionType.specifiesSize">
+[<em>tf</em>] = <code class="descname">specifiesSize</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.specifiesSize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.specifiesSize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="autoaxis.+AutoAxis.PositionType.getLocationFieldsAffected">
+[<em>fields</em>] = <code class="descname">getLocationFieldsAffected</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.getLocationFieldsAffected"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.getLocationFieldsAffected" title="Permalink to this definition">¶</a></dt>
+<dd><p>list PositionType fields potentially affected by this type of anchor</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="autoaxis.+AutoAxis.PositionType.flip">
+[<em>posInv</em>] = <code class="descname">flip</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.flip"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.flip" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="autoaxis.+AutoAxis.PositionType.toHorizontalAlignment">
+[<em>align</em>] = <code class="descname">toHorizontalAlignment</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.toHorizontalAlignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.toHorizontalAlignment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="autoaxis.+AutoAxis.PositionType.toVerticalAlignment">
+[<em>align</em>] = <code class="descname">toVerticalAlignment</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.toVerticalAlignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.toVerticalAlignment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<div class="note admonition" id="autoaxis-autoaxis-positiontype-positiontype-member-group-2-autoaxis-autoaxis-positiontype-positiontype-member-group-2">
+<p class="first admonition-title">Static Methods</p>
+<p class="last">&#8211;</p>
+</div>
+<dl class="staticmethod">
+<dt id="autoaxis.+AutoAxis.PositionType.horizontalAlignmentToPositionType">
+<em class="property">static</em>[<em>pos</em>] = <code class="descname">horizontalAlignmentToPositionType</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.horizontalAlignmentToPositionType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.horizontalAlignmentToPositionType" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="autoaxis.+AutoAxis.PositionType.verticalAlignmentToPositionType">
+<em class="property">static</em>[<em>pos</em>] = <code class="descname">verticalAlignmentToPositionType</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_code/autoaxis/+AutoAxis/PositionType.html#PositionType.verticalAlignmentToPositionType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#autoaxis.+AutoAxis.PositionType.verticalAlignmentToPositionType" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="mat-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Dan O&#39;Shea.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0.5.1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

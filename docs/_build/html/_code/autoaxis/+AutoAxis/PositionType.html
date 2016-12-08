@@ -1,0 +1,488 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>PositionType &mdash; AutoAxis 0.5.1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="AutoAxis 0.5.1 documentation" href="../../../index.html"/>
+        <link rel="up" title="autoaxis" href="../../autoaxis.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> AutoAxis
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.5
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <!-- Local TOC -->
+                <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">AutoAxis</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+          <li><a href="../../autoaxis.html">autoaxis</a> &raquo;</li>
+      
+    <li>PositionType</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for PositionType</h1><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre>  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+ 11
+ 12
+ 13
+ 14
+ 15
+ 16
+ 17
+ 18
+ 19
+ 20
+ 21
+ 22
+ 23
+ 24
+ 25
+ 26
+ 27
+ 28
+ 29
+ 30
+ 31
+ 32
+ 33
+ 34
+ 35
+ 36
+ 37
+ 38
+ 39
+ 40
+ 41
+ 42
+ 43
+ 44
+ 45
+ 46
+ 47
+ 48
+ 49
+ 50
+ 51
+ 52
+ 53
+ 54
+ 55
+ 56
+ 57
+ 58
+ 59
+ 60
+ 61
+ 62
+ 63
+ 64
+ 65
+ 66
+ 67
+ 68
+ 69
+ 70
+ 71
+ 72
+ 73
+ 74
+ 75
+ 76
+ 77
+ 78
+ 79
+ 80
+ 81
+ 82
+ 83
+ 84
+ 85
+ 86
+ 87
+ 88
+ 89
+ 90
+ 91
+ 92
+ 93
+ 94
+ 95
+ 96
+ 97
+ 98
+ 99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="k">classdef</span> <span class="n">PositionType</span> <span class="o">&lt;</span> <span class="n">uint32</span>
+<a name="PositionType"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType">[docs]</a></div>    <span class="n">enumeration</span>
+        <span class="n">Top</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a name="PositionType.Top"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.Top">[docs]</a></div>        <span class="n">Bottom</span> <span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<a name="PositionType.Bottom"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.Bottom">[docs]</a></div>        <span class="n">VCenter</span> <span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<a name="PositionType.VCenter"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.VCenter">[docs]</a></div>        <span class="n">Height</span> <span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<a name="PositionType.Height"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.Height">[docs]</a></div>
+        <span class="n">Left</span> <span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<a name="PositionType.Left"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.Left">[docs]</a></div>        <span class="n">Right</span> <span class="p">(</span><span class="mi">6</span><span class="p">)</span> 
+<a name="PositionType.Right"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.Right">[docs]</a></div>        <span class="n">HCenter</span> <span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+<a name="PositionType.HCenter"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.HCenter">[docs]</a></div>        <span class="n">Width</span> <span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<a name="PositionType.Width"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.Width">[docs]</a></div>        
+        <span class="n">Literal</span> <span class="p">(</span><span class="mi">9</span><span class="p">)</span> <span class="c">% references an actual location in data coordinates on either X or Y axis. e.g. to implement a rightwards offset from X=20</span>
+<a name="PositionType.Literal"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.Literal">[docs]</a></div>        
+        <span class="n">MarkerDiameter</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="c">% size the height/width of the marker on a line object</span>
+<a name="PositionType.MarkerDiameter"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.MarkerDiameter">[docs]</a></div>    <span class="k">end</span>
+
+    <span class="k">methods</span>
+<span class="k">        function</span><span class="w"> </span>field <span class="p">=</span><span class="w"> </span><span class="nf">getDirectField</span><span class="p">(</span>pos<span class="p">)</span><span class="w"></span>
+<a name="PositionType.getDirectField"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.getDirectField">[docs]</a></div><span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+
+            <span class="k">switch</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Top</span> 
+                    <span class="n">field</span> <span class="p">=</span> <span class="s">&#39;top&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Bottom</span> 
+                    <span class="n">field</span> <span class="p">=</span> <span class="s">&#39;bottom&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Height</span>
+                    <span class="n">field</span> <span class="p">=</span> <span class="s">&#39;height&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">VCenter</span>
+                    <span class="n">field</span> <span class="p">=</span> <span class="s">&#39;vcenter&#39;</span><span class="p">;</span>
+                
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Left</span>
+                    <span class="n">field</span> <span class="p">=</span> <span class="s">&#39;left&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Right</span>
+                    <span class="n">field</span> <span class="p">=</span> <span class="s">&#39;right&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">HCenter</span>
+                    <span class="n">field</span> <span class="p">=</span> <span class="s">&#39;hcenter&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Width</span>
+                    <span class="n">field</span> <span class="p">=</span> <span class="s">&#39;width&#39;</span><span class="p">;</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+<span class="k">        </span>
+<a name="PositionType.isX"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.isX">[docs]</a></div><span class="k">        function</span><span class="w"> </span>tf <span class="p">=</span><span class="w"> </span><span class="nf">isX</span><span class="p">(</span>pos<span class="p">)</span><span class="w"></span>
+<span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+            <span class="n">tf</span> <span class="p">=</span> <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Left</span> <span class="o">||</span> <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Right</span> <span class="o">||</span> <span class="c">...</span>
+                <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">HCenter</span> <span class="o">||</span> <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Width</span><span class="p">;</span>
+        <span class="k">end</span>
+
+<a name="PositionType.isY"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.isY">[docs]</a></div><span class="k">        function</span><span class="w"> </span>tf <span class="p">=</span><span class="w"> </span><span class="nf">isY</span><span class="p">(</span>pos<span class="p">)</span><span class="w"></span>
+<span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+            <span class="n">tf</span> <span class="p">=</span> <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Bottom</span> <span class="o">||</span> <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Top</span> <span class="o">||</span> <span class="c">...</span>
+                <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">VCenter</span> <span class="o">||</span> <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Height</span><span class="p">;</span>
+        <span class="k">end</span>
+<span class="k">        </span>
+<a name="PositionType.specifiesSize"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.specifiesSize">[docs]</a></div><span class="k">        function</span><span class="w"> </span>tf <span class="p">=</span><span class="w"> </span><span class="nf">specifiesSize</span><span class="p">(</span>pos<span class="p">)</span><span class="w"></span>
+<span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+            <span class="n">tf</span> <span class="p">=</span> <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Width</span> <span class="o">||</span> <span class="n">pos</span> <span class="o">==</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Height</span><span class="p">;</span>
+        <span class="k">end</span>
+
+<a name="PositionType.getLocationFieldsAffected"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.getLocationFieldsAffected">[docs]</a></div><span class="k">        function</span><span class="w"> </span>fields <span class="p">=</span><span class="w"> </span><span class="nf">getLocationFieldsAffected</span><span class="p">(</span>pos<span class="p">)</span><span class="w"></span>
+<span class="w">            </span><span class="c">% list PositionType fields potentially affected by this type of anchor</span>
+            <span class="k">switch</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+                <span class="k">case</span> <span class="p">{</span><span class="n">PositionType</span><span class="p">.</span><span class="n">Top</span><span class="p">,</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Bottom</span><span class="p">,</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">VCenter</span><span class="p">,</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Height</span><span class="p">}</span>
+                    <span class="n">fields</span> <span class="p">=</span> <span class="p">{</span><span class="s">&#39;top&#39;</span><span class="p">,</span> <span class="s">&#39;bottom&#39;</span><span class="p">,</span> <span class="s">&#39;height&#39;</span><span class="p">};</span>
+                <span class="k">case</span> <span class="p">{</span><span class="n">PositionType</span><span class="p">.</span><span class="n">Left</span><span class="p">,</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Right</span><span class="p">,</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">HCenter</span><span class="p">,</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Width</span><span class="p">}</span>
+                    <span class="n">fields</span> <span class="p">=</span> <span class="p">{</span><span class="s">&#39;left&#39;</span><span class="p">,</span> <span class="s">&#39;right&#39;</span><span class="p">,</span> <span class="s">&#39;width&#39;</span><span class="p">};</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+<span class="k">        </span>
+<a name="PositionType.flip"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.flip">[docs]</a></div><span class="k">        function</span><span class="w"> </span>posInv <span class="p">=</span><span class="w"> </span><span class="nf">flip</span><span class="p">(</span>pos<span class="p">)</span><span class="w"></span>
+<span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+            <span class="k">switch</span> <span class="n">pos</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">HCenter</span>
+                    <span class="n">posInv</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">HCenter</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Left</span>
+                    <span class="n">posInv</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Right</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Right</span>
+                    <span class="n">posInv</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Left</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">VCenter</span>
+                    <span class="n">posInv</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">VCenter</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Top</span>
+                    <span class="n">posInv</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Bottom</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Bottom</span>
+                    <span class="n">posInv</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Top</span><span class="p">;</span>
+                <span class="k">otherwise</span>
+                    <span class="n">error</span><span class="p">(</span><span class="s">&#39;Not valid for flip&#39;</span><span class="p">);</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+<span class="k">        </span>
+<a name="PositionType.toHorizontalAlignment"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.toHorizontalAlignment">[docs]</a></div><span class="k">        function</span><span class="w"> </span>align <span class="p">=</span><span class="w"> </span><span class="nf">toHorizontalAlignment</span><span class="p">(</span>pos<span class="p">)</span><span class="w"></span>
+<span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+            <span class="k">switch</span> <span class="n">pos</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">HCenter</span>
+                    <span class="n">align</span> <span class="p">=</span> <span class="s">&#39;center&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Left</span>
+                    <span class="n">align</span> <span class="p">=</span> <span class="s">&#39;left&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Right</span>
+                    <span class="n">align</span> <span class="p">=</span> <span class="s">&#39;right&#39;</span><span class="p">;</span>
+                <span class="k">otherwise</span>
+                    <span class="n">error</span><span class="p">(</span><span class="s">&#39;Not valid for horizontal alignment&#39;</span><span class="p">);</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+<span class="k">        </span>
+<a name="PositionType.toVerticalAlignment"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.toVerticalAlignment">[docs]</a></div><span class="k">        function</span><span class="w"> </span>align <span class="p">=</span><span class="w"> </span><span class="nf">toVerticalAlignment</span><span class="p">(</span>pos<span class="p">)</span><span class="w"></span>
+<span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+            <span class="k">switch</span> <span class="n">pos</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">VCenter</span>
+                    <span class="n">align</span> <span class="p">=</span> <span class="s">&#39;middle&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Top</span>
+                    <span class="n">align</span> <span class="p">=</span> <span class="s">&#39;top&#39;</span><span class="p">;</span>
+                <span class="k">case</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Bottom</span>
+                    <span class="n">align</span> <span class="p">=</span> <span class="s">&#39;bottom&#39;</span><span class="p">;</span>
+                <span class="k">otherwise</span>
+                    <span class="n">error</span><span class="p">(</span><span class="s">&#39;Not valid for vertical alignment&#39;</span><span class="p">);</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+    <span class="k">end</span>
+    
+    <span class="k">methods</span><span class="p">(</span><span class="n">Static</span><span class="p">)</span>
+<span class="k">        function</span><span class="w"> </span>pos <span class="p">=</span><span class="w"> </span><span class="nf">horizontalAlignmentToPositionType</span><span class="p">(</span>align<span class="p">)</span><span class="w"></span>
+<a name="PositionType.horizontalAlignmentToPositionType"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.horizontalAlignmentToPositionType">[docs]</a></div><span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+            <span class="k">switch</span> <span class="n">align</span>
+                <span class="k">case</span> <span class="s">&#39;center&#39;</span>
+                    <span class="n">pos</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">HCenter</span><span class="p">;</span>
+                <span class="k">case</span> <span class="s">&#39;left&#39;</span>
+                    <span class="n">pos</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Left</span><span class="p">;</span>
+                <span class="k">case</span> <span class="s">&#39;right&#39;</span>
+                    <span class="n">pos</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Right</span><span class="p">;</span>
+                <span class="k">otherwise</span>
+                    <span class="n">error</span><span class="p">(</span><span class="s">&#39;Unknown horizontal alignment string&#39;</span><span class="p">);</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+<span class="k">            </span>
+<a name="PositionType.verticalAlignmentToPositionType"></a><div class="viewcode-block" id="autoaxis.+AutoAxis:PositionType"><a class="viewcode-back" href="../../../index.html#autoaxis.+AutoAxis.PositionType.verticalAlignmentToPositionType">[docs]</a></div><span class="k">        function</span><span class="w"> </span>pos <span class="p">=</span><span class="w"> </span><span class="nf">verticalAlignmentToPositionType</span><span class="p">(</span>align<span class="p">)</span><span class="w"></span>
+<span class="w">            </span><span class="n">import</span> <span class="n">AutoAxis</span><span class="p">.</span><span class="n">PositionType</span><span class="p">;</span>
+            <span class="k">switch</span> <span class="n">align</span>
+                <span class="k">case</span> <span class="s">&#39;middle&#39;</span>
+                    <span class="n">pos</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">VCenter</span><span class="p">;</span>
+                <span class="k">case</span> <span class="s">&#39;top&#39;</span>
+                    <span class="n">pos</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Top</span><span class="p">;</span>
+                <span class="k">case</span> <span class="s">&#39;bottom&#39;</span>
+                    <span class="n">pos</span> <span class="p">=</span> <span class="n">PositionType</span><span class="p">.</span><span class="n">Bottom</span><span class="p">;</span>
+                <span class="k">otherwise</span>
+                    <span class="n">error</span><span class="p">(</span><span class="s">&#39;Unknown vertical alignment string&#39;</span><span class="p">);</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+    <span class="k">end</span>
+<span class="k">end</span>
+</pre></div>
+</td></tr></table>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Dan O&#39;Shea.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'0.5.1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

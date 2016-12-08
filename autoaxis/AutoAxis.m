@@ -1938,9 +1938,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 exponent = p.Results.exponent;
             else
                 if useX
-                    exponent = axh.XAxis.Exponent;
+                    exponent = axh.XRuler.Exponent;
                 else
-                    exponent = axh.YAxis.Exponent;
+                    exponent = axh.YRuler.Exponent;
                 end
             end
             
