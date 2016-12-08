@@ -66,11 +66,11 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
         end
         
         function h = get.h(info)
-            h = AutoAxis.Utilities.makecol(info.h);
+            h = AutoAxisUtilities.makecol(info.h);
         end
         
         function ha = get.ha(info)
-            ha = AutoAxis.Utilities.makecol(info.ha);
+            ha = AutoAxisUtilities.makecol(info.ha);
         end
     end
         

@@ -10,7 +10,7 @@ classdef TensorUtils
             % inputs each element of out came from
             out = cat(dim, varargin{:});
             if nargout > 1
-                which = cell2mat(AutoAxis.Utilities.makecol(cellfun(@(in, idx) idx*ones(size(in, dim), 1), varargin, ...
+                which = cell2mat(AutoAxisUtilities.makecol(cellfun(@(in, idx) idx*ones(size(in, dim), 1), varargin, ...
                     num2cell(1:numel(varargin)), 'UniformOutput', false)));
             end
         end
@@ -26,7 +26,7 @@ classdef TensorUtils
                 return;
             end
             if nargout > 1
-                whichMasked = cell2mat(AutoAxis.Utilities.makecol(cellfun(@(in, idx) idx*ones(size(in, dim), 1), varargin(~isEmpty), ...
+                whichMasked = cell2mat(AutoAxisUtilities.makecol(cellfun(@(in, idx) idx*ones(size(in, dim), 1), varargin(~isEmpty), ...
                     num2cell(1:nnz(~isEmpty)), 'UniformOutput', false)));
                 
                 % whichMasked indexes into masked varargin, reset these to
