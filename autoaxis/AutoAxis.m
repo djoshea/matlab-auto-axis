@@ -1100,6 +1100,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % add handles in hvec to the list ax.(name), updating all
             % anchors that involve that handle
             
+            name = AutoAxis.Utilities.makerow(name);
             if ~isfield(ax.collections, name)
                 oldHvec = [];
             else
@@ -1129,7 +1130,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             hc = cell(numel(names), 1);
             for i = 1:numel(names)
-                name = names{i};
+                name = AutoAxis.Utilities.makerow(names{i});
                 if isfield(ax.collections, name)
                     hc{i} = ax.collections.(name);
                 elseif isfield(ax, name)
