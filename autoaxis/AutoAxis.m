@@ -1915,22 +1915,37 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 ticks = p.Results.tick;
                 labels = p.Results.tickLabel;
             else
+                % briefly need to set font size back
                 if useX
-                    ticks = get(axh, 'XTick');
-                    labels = get(axh, 'XTickLabel');
-                    if numel(labels) ~= numel(ticks)
-                        labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
-                    end
+                    oldFs = axh.XRuler.FontSize; % likely 0.1
+                    axh.XRuler.FontSize = axh.FontSize;
+%                     ticks = get(axh, 'XTick');
+                    ticks = axh.XRuler.TickValues;
+%                     labels = get(axh, 'XTickLabel');
+                    
+%                     if numel(labels) ~= numel(ticks)
+%                         labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
+%                     end
+                    
+                    axh.XRuler.FontSize = oldFs;
                 else
-                    ticks = get(axh, 'YTick');
-                    labels = get(axh, 'YTickLabel');
-                    if numel(labels) ~= numel(ticks)
-%                         set(axh, 'YTickLabel', {}, 'YTickLabelMode', 'auto');
-                        labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
-%                         labels = get(axh, 'YTickLabel');
-                    end    
+                    oldFs = axh.YRuler.FontSize; % likely 0.1
+                    axh.YRuler.FontSize = axh.FontSize;
+                    ticks = axh.YRuler.TickValues;
+                    
+%                     ticks = get(axh, 'YTick');
+%                     labels = get(axh, 'YTickLabel');
+%                     if numel(labels) ~= numel(ticks)
+% %                         set(axh, 'YTickLabel', {}, 'YTickLabelMode', 'auto');
+%                         labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
+% %                         labels = get(axh, 'YTickLabel');
+%                     end  
+
+                    axh.YRuler.FontSize = oldFs;
                 end
-                 
+                
+                labels = arrayfun(@(t) sprintf(axh.XRuler.TickLabelFormat, t), ticks, 'UniformOutput', false);
+                
                 %labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
 %                 labels = strtrim(mat2cell(labels, ones(size(labels,1),1), size(labels, 2)));
             end
