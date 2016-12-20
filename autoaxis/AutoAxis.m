@@ -405,6 +405,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         xReverse % true/false if xDir is reverse
         yReverse % true/false if yDir is reverse
+        
+        xAutoTicks
+        xAutoMinorTicks
+        yAutoTicks
+        yAutoMinorTicks
     end
     
     methods % Constructor
@@ -1916,38 +1921,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 labels = p.Results.tickLabel;
             else
                 % briefly need to set font size back
+                ax.updateAutoTicks();
                 if useX
-                    oldFs = axh.XRuler.FontSize; % likely 0.1
-                    axh.XRuler.FontSize = axh.FontSize;
-%                     ticks = get(axh, 'XTick');
-                    ticks = axh.XRuler.TickValues;
-%                     labels = get(axh, 'XTickLabel');
-                    
-%                     if numel(labels) ~= numel(ticks)
-%                         labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
-%                     end
-                    
-                    axh.XRuler.FontSize = oldFs;
+                    ticks = ax.xAutoTicks;
+                    labels = arrayfun(@(t) sprintf(axh.XRuler.TickLabelFormat, t), ticks, 'UniformOutput', false);
                 else
-                    oldFs = axh.YRuler.FontSize; % likely 0.1
-                    axh.YRuler.FontSize = axh.FontSize;
-                    ticks = axh.YRuler.TickValues;
-                    
-%                     ticks = get(axh, 'YTick');
-%                     labels = get(axh, 'YTickLabel');
-%                     if numel(labels) ~= numel(ticks)
-% %                         set(axh, 'YTickLabel', {}, 'YTickLabelMode', 'auto');
-%                         labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
-% %                         labels = get(axh, 'YTickLabel');
-%                     end  
-
-                    axh.YRuler.FontSize = oldFs;
+                    ticks = ax.yAutoTicks;
+                    labels = arrayfun(@(t) sprintf(axh.YRuler.TickLabelFormat, t), ticks, 'UniformOutput', false);
                 end
-                
-                labels = arrayfun(@(t) sprintf(axh.XRuler.TickLabelFormat, t), ticks, 'UniformOutput', false);
-                
-                %labels = arrayfun(@num2str, ticks, 'UniformOutput', false);
-%                 labels = strtrim(mat2cell(labels, ones(size(labels,1),1), size(labels, 2)));
             end
             
             if ~isnan(p.Results.exponent)
@@ -3348,6 +3329,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             figh = AutoAxis.getParentFigure(ax.axh);
             figColor = get(figh, 'Color');
             backgroundSet = ~isequal(figColor, ax.backgroundColor);
+            if gridActive && ~backgroundSet
+                % set the grid background if not set
+                ax.backgroundColor = ax.gridBackground;
+            end
             if gridActive || backgroundSet
                 % dont turn the grid off, instead hide the rulers
                 axis(ax.axh, 'on');
@@ -3378,16 +3363,23 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % this has the effect of setting TightInset to 0, so that our
             % margins will be the effective margins
             
+            % but we cache the normal ticks for x and y for use by tick
+            % bridges and grids
+             
             sz = get(ax.axh, 'FontSize');
             fs = ax.axh.XLabel.FontSize;
             if fs == 0.1, fs = sz; end
+            % set small
             ax.axh.XRuler.FontSize = 0.1;
             ax.axh.XLabel.FontSize = fs;
             
             fs = ax.axh.YLabel.FontSize;
             if fs == 0.1, fs = sz; end
+            % set small
             ax.axh.YRuler.FontSize = 0.1;
             ax.axh.YLabel.FontSize = fs;
+            
+            ax.updateAutoTicks();
             
             % update constants converting pixels to paper units
             ax.updateAxisScaling();
@@ -3644,6 +3636,37 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 uistack(ax.axhDraw, 'top');
 
                 set(ax.axh, 'Units', axUnits);
+            end
+        end
+        
+        function updateAutoTicks(ax)
+            sz = get(ax.axh, 'FontSize');
+            fs = ax.axh.XRuler.FontSize;
+            % set big first
+            ax.axh.XRuler.FontSize = sz;
+            % fetch ticks
+            ax.xAutoTicks = ax.axh.XRuler.TickValues;
+            ax.xAutoMinorTicks = ax.axh.XRuler.MinorTickValues;
+            % set small
+            ax.axh.XRuler.FontSize = fs;
+            
+            fs = ax.axh.YLabel.FontSize;
+            % set big first
+            ax.axh.YRuler.FontSize = sz;
+            % fetch ticks
+            ax.yAutoTicks = ax.axh.YRuler.TickValues;
+            ax.yAutoMinorTicks = ax.axh.YRuler.MinorTickValues;
+            % set small
+            ax.axh.YRuler.FontSize = fs;
+            
+            % update grid ticks too
+            if ~isempty(ax.axh.XGridHandle)
+                ax.axh.XGridHandle.MajorTick = ax.xAutoTicks;
+                ax.axh.XGridHandle.MinorTick = ax.xAutoTicks;
+            end
+            if ~isempty(ax.axh.YGridHandle)
+                ax.axh.YGridHandle.MajorTick = ax.yAutoTicks;
+                ax.axh.YGridHandle.MinorTick = ax.xAutoTicks;
             end
         end
 
