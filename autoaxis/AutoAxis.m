@@ -408,8 +408,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         xAutoTicks
         xAutoMinorTicks
+        xAutoTickLabels
         yAutoTicks
         yAutoMinorTicks
+        yAutoTickLabels
     end
     
     methods % Constructor
@@ -1816,10 +1818,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~isempty(p.Results.tick)
                 ticks = p.Results.tick;
                 labels = p.Results.tickLabel;
+            elseif useX
+                ticks = axh.xAutoTicks;
+                labels = axh.xAutoTickLabels;
             else
-                ticks = get(axh, 'XTick');
-                labels = get(axh, 'XTickLabel');
-                labels = strtrim(mat2cell(labels, ones(size(labels,1),1), size(labels, 2)));
+                ticks = axh.yAutoTicks;
+                labels = axh.yAutoTickLabels;
             end
             
             if isempty(labels)
@@ -1924,10 +1928,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 ax.updateAutoTicks();
                 if useX
                     ticks = ax.xAutoTicks;
-                    labels = arrayfun(@(t) sprintf(axh.XRuler.TickLabelFormat, t), ticks, 'UniformOutput', false);
+                    labels = ax.xAutoTickLabels;
                 else
                     ticks = ax.yAutoTicks;
-                    labels = arrayfun(@(t) sprintf(axh.YRuler.TickLabelFormat, t), ticks, 'UniformOutput', false);
+                    labels = ax.yAutoTickLabels;
                 end
             end
             
@@ -3365,22 +3369,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % but we cache the normal ticks for x and y for use by tick
             % bridges and grids
-             
-            sz = get(ax.axh, 'FontSize');
-            fs = ax.axh.XLabel.FontSize;
-            if fs == 0.1, fs = sz; end
-            % set small
-            ax.axh.XRuler.FontSize = 0.1;
-            ax.axh.XLabel.FontSize = fs;
-            
-            fs = ax.axh.YLabel.FontSize;
-            if fs == 0.1, fs = sz; end
-            % set small
-            ax.axh.YRuler.FontSize = 0.1;
-            ax.axh.YLabel.FontSize = fs;
             
             ax.updateAutoTicks();
             
+            
+           
             % update constants converting pixels to paper units
             ax.updateAxisScaling();
             
@@ -3641,23 +3634,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         function updateAutoTicks(ax)
             sz = get(ax.axh, 'FontSize');
-            fs = ax.axh.XRuler.FontSize;
+            fs = 0.1;
+            
             % set big first
             ax.axh.XRuler.FontSize = sz;
             % fetch ticks
             ax.xAutoTicks = ax.axh.XRuler.TickValues;
+            ax.xAutoTickLabels = ax.axh.XRuler.TickLabels;
             ax.xAutoMinorTicks = ax.axh.XRuler.MinorTickValues;
             % set small
             ax.axh.XRuler.FontSize = fs;
+            ax.axh.XLabel.FontSize = sz;
             
-            fs = ax.axh.YLabel.FontSize;
             % set big first
             ax.axh.YRuler.FontSize = sz;
             % fetch ticks
             ax.yAutoTicks = ax.axh.YRuler.TickValues;
+            ax.yAutoTickLabels = ax.axh.YRuler.TickLabels;
             ax.yAutoMinorTicks = ax.axh.YRuler.MinorTickValues;
             % set small
             ax.axh.YRuler.FontSize = fs;
+            ax.axh.YLabel.FontSize = sz;
             
             % update grid ticks too
             if ~isempty(ax.axh.XGridHandle)
