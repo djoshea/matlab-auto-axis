@@ -2479,15 +2479,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~isempty(p.Results.length)
                 len = p.Results.length;
             else
+                if isempty(ax.xAutoTicks)
+                    ax.updateAutoTicks();
+                end
                 if ax.keepAutoScaleBarsEqual && p.Results.useAutoScaleBarCollections
-                    xticks = get(ax.axh, 'XTick');
-                    yticks = get(ax.axh, 'YTick');
+                    xticks = ax.xAutoTicks;
+                    yticks = ax.yAutoTicks;
                     len = min([xticks(end) - xticks(end-1), yticks(end) - yticks(end-1)]);
                 else
                     if useX
-                        ticks = get(ax.axh, 'XTick');
+                        ticks = ax.xAutoTicks;
                     else
-                        ticks = get(ax.axh, 'YTick');
+                        ticks = ax.yAutoTicks;
                     end
                     if isempty(ticks)
                         xl = get(ax.axh, 'XLim');

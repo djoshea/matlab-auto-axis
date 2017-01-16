@@ -16,7 +16,7 @@ for i = 1:numel(avals)
     hold on
 end
 
-set(gca, 'YDir', 'reverse');
+set(gca, 'YDir', 'reverse', 'XDir', 'reverse');
 
 % playing around with a dot and label
 
@@ -40,6 +40,7 @@ au.xUnits = 'ms';
 au.yUnits = 'mV';
 au.addAutoScaleBarX();
 au.addAutoScaleBarY();
+au.gridOn;
 
 % useAutoAxisX = true;
 % if useAutoAxisX
@@ -71,8 +72,9 @@ au.addAutoScaleBarY();
 % au.axisLabelOffsetLeft = 1.3;
 % au.axisLabelOffsetBottom = 1.3;
 
-axis off
+axis tight;
 au.update();
+
 % au.installCallbacks();
 
 auVec(i) = au;
