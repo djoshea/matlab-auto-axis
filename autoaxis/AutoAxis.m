@@ -1935,6 +1935,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
             
+            if isempty(ticks)
+                if useX
+                    ticks = get(axh, 'XLim');
+                    labels = {''; ''};
+                else
+                    ticks = get(axh, 'YLim');
+                    labels = {''; ''};
+                end
+            end
+            
             if ~isnan(p.Results.exponent)
                 exponent = p.Results.exponent;
             else
