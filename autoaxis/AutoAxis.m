@@ -1209,6 +1209,23 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.installCallbacks();
         end
         
+        function ax = replaceGrid(axh)
+            % automatically replace title, axis labels, and ticks
+
+            if nargin < 1
+                axh = gca;
+            end
+
+            ax = AutoAxis(axh);
+%             axis(axh, 'off');
+            ax.addAutoAxisX();
+            ax.addAutoAxisY();
+            ax.addTitle();
+            ax.gridOn();
+            ax.update();
+            ax.installCallbacks();
+        end
+        
         function ax = replaceScaleBars(varargin)
             % automatically replace title, axis labels, and ticks
 
