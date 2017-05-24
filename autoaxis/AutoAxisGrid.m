@@ -288,6 +288,10 @@ classdef AutoAxisGrid < handle
             g.spacing_x = spacing_x;
             g.spacing_y = spacing_y;
         end
+        
+        function update(g)
+            g.updateSpacing();
+        end
     end
 
     methods(Static)
