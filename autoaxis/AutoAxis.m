@@ -2471,34 +2471,34 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %             end
         end
         
-        function ht = addLabelX(ax, varargin)
-            import AutoAxis.PositionType;
-            
-            p = inputParser();
-            p.addRequired('x', @isscalar);
-            p.addRequired('label', @ischar);
-            p.addParameter('labelColor', ax.tickFontColor, @(x) isvector(x) || isempty(x) || ischar(x));
-            p.CaseSensitive = false;
-            p.parse(varargin{:});
-            
-            label = p.Results.label;
-            
-            yl = get(ax.axh, 'YLim');
-            
-            ht = text(p.Results.x, yl(1), p.Results.label, ...
-                'FontSize', ax.tickFontSize, 'Color', p.Results.labelColor, ...
-                'HorizontalAlignment', 'center', 'VerticalAlignment', 'top', ...
-                'Parent', ax.axhDraw, 'Interpreter', 'none');
-            
-            ai = AutoAxis.AnchorInfo(ht, PositionType.Top, ...
-                ax.axh, PositionType.Bottom, 'axisPaddingBottom', ...
-                sprintf('labelX ''%s'' to bottom of axis', label));
-            ax.addAnchor(ai);
-            
-            % add to belowX handle collection to update the dependent
-            % anchors
-            ax.addHandlesToCollection('belowX', ht);
-        end
+%         function ht = addLabelX(ax, varargin)
+%             import AutoAxis.PositionType;
+%             
+%             p = inputParser();
+%             p.addRequired('x', @isscalar);
+%             p.addRequired('label', @ischar);
+%             p.addParameter('labelColor', ax.tickFontColor, @(x) isvector(x) || isempty(x) || ischar(x));
+%             p.CaseSensitive = false;
+%             p.parse(varargin{:});
+%             
+%             label = p.Results.label;
+%             
+%             yl = get(ax.axh, 'YLim');
+%             
+%             ht = text(p.Results.x, yl(1), p.Results.label, ...
+%                 'FontSize', ax.tickFontSize, 'Color', p.Results.labelColor, ...
+%                 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top', ...
+%                 'Parent', ax.axhDraw, 'Interpreter', 'none');
+%             
+%             ai = AutoAxis.AnchorInfo(ht, PositionType.Top, ...
+%                 ax.axh, PositionType.Bottom, 'axisPaddingBottom', ...
+%                 sprintf('labelX ''%s'' to bottom of axis', label));
+%             ax.addAnchor(ai);
+%             
+%             % add to belowX handle collection to update the dependent
+%             % anchors
+%             ax.addHandlesToCollection('belowX', ht);
+%         end
         
         function hlist = addScaleBar(ax, varargin)
             % add rectangular scale bar with text label to either the x or
@@ -2541,7 +2541,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     end
                     if isempty(ticks)
                         xl = get(ax.axh, 'XLim');
-                        len = floor(xl/5);
+                        len = floor(diff(xl)/5);
                     else
                         len = ticks(end) - ticks(end-1);
                     end
@@ -2856,6 +2856,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('leaveInPlace', false, @islogical);
             p.addParameter('manualPos', 0, @isscalar); % position to place along non-orientation axis, when leaveInPlace is true
             p.addParameter('rotation', 0, @isscalar);
+            p.addParameter('showSpanLines', true, @islogical); % true to draw the line delineating the span, false for just the label
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -2911,23 +2912,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 va = repmat({'middle'}, size(xtext));
                 offset = 'axisPaddingLeft';
             end
-            
-            hl = line(xvals, yvals, 'LineWidth', lineWidth, 'Parent', ax.axhDraw);
             if iscell(color)
                 nc = numel(color);
             else
                 nc = size(color, 1);
             end
             wrap = @(i) mod(i-1, nc) + 1;
-            for i = 1:nSpan
-                if iscell(color)
-                    set(hl(i), 'Color', color{wrap(i)});
-                else
-                    set(hl(i), 'Color', color(wrap(i), :));
+            
+            if p.Results.showSpanLines
+                hl = line(xvals, yvals, 'LineWidth', lineWidth, 'Parent', ax.axhDraw);
+            
+                for i = 1:nSpan
+                    if iscell(color)
+                        set(hl(i), 'Color', color{wrap(i)});
+                    else
+                        set(hl(i), 'Color', color(wrap(i), :));
+                    end
                 end
+                AutoAxis.hideInLegend(hl);
+                set(hl, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
             end
-            AutoAxis.hideInLegend(hl);
-            set(hl, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
+            
             ht = AutoAxis.allocateHandleVector(nSpan);
             keep = AutoAxisUtilities.truevec(nSpan);
             for i = 1:nSpan
@@ -2954,37 +2959,54 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
             
-            if ~leaveInPlace
-                % build anchor for lines
-                if useX
-                    ai = AnchorInfo(hl, PositionType.Top, ax.axh, ...
-                        PositionType.Bottom, offset, 'xLabeledSpan below axis');
-                    ax.addAnchor(ai);
-                else
-                    ai = AnchorInfo(hl, PositionType.Right, ...
-                        ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
-                    ax.addAnchor(ai);
+            if p.Results.showSpanLines
+                if ~leaveInPlace
+                    % build anchor for lines
+                    if useX
+                        ai = AnchorInfo(hl, PositionType.Top, ax.axh, ...
+                            PositionType.Bottom, offset, 'xLabeledSpan below axis');
+                        ax.addAnchor(ai);
+                    else
+                        ai = AnchorInfo(hl, PositionType.Right, ...
+                            ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
+                        ax.addAnchor(ai);
+                    end
                 end
-            end
 
-            if ~isempty(ht)
-                % anchor labels to lines (always)
+                if ~isempty(ht)
+                    % anchor labels to lines (always)
+                    if useX
+                        ai = AnchorInfo(ht, PositionType.Top, ...
+                            hl, PositionType.Bottom, 'tickLabelOffset', ...
+                            'xLabeledSpan below ticks');
+                        ax.addAnchor(ai);
+                    else
+                        ai = AnchorInfo(ht, PositionType.Right, ...
+                            hl, PositionType.Left, 'tickLabelOffset', ...
+                            'yLabeledSpan left of ticks');
+                        ax.addAnchor(ai);
+                    end
+                end
+            else
+                % anchor labels to axis
                 if useX
-                    ai = AnchorInfo(ht, PositionType.Top, ...
-                        hl, PositionType.Bottom, 'tickLabelOffset', ...
-                        'xLabeledSpan below ticks');
-                    ax.addAnchor(ai);
-                else
-                    ai = AnchorInfo(ht, PositionType.Right, ...
-                        hl, PositionType.Left, 'tickLabelOffset', ...
-                        'yLabeledSpan left of ticks');
-                    ax.addAnchor(ai);
+                        ai = AnchorInfo(ht, PositionType.Top, ax.axh, ...
+                            PositionType.Bottom, offset, 'xLabeledSpan below axis');
+                        ax.addAnchor(ai);
+                    else
+                        ai = AnchorInfo(ht, PositionType.Right, ...
+                            ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
+                        ax.addAnchor(ai);
                 end
             end
             
             ht = AutoAxisUtilities.makecol(ht);
-            hl = AutoAxisUtilities.makecol(hl);
-            hlist = [hl; ht];
+            if p.Results.showSpanLines
+                hl = AutoAxisUtilities.makecol(hl);
+                hlist = [hl; ht];
+            else
+                hlist = ht;
+            end
             if ~leaveInPlace
                 % add handles to handle collections
                 if useX
@@ -3407,7 +3429,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 figh.InvertHardcopy = 'off';
                 % other properties will be set in deferred updates
             else
-                axis(ax.axh, 'off');
+%                 axis(ax.axh, 'off');
+                axis(ax.axh, 'on');
+                box(ax.axh, 'off');
+                ax.axh.XRuler.Visible = 'off';
+                ax.axh.YRuler.Visible = 'off';
             end
             if ax.usingOverlay
                 axis(ax.axhDraw, 'off');
@@ -3457,14 +3483,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % restore the X and Y label handles and make them visible since
             % they have a tendency to get hidden (presumably by axis off)
-            if ~isempty(ax.hXLabel)
-                ax.hXLabel = get(ax.axh, 'XLabel');
-                set(ax.hXLabel, 'Visible', 'on');
-            end
-            if ~isempty(ax.hYLabel)
-                ax.hYLabel = get(ax.axh, 'YLabel');
-                set(ax.hYLabel, 'Visible', 'on');
-            end
+            ax.hXLabel = get(ax.axh, 'XLabel');
+            set(ax.hXLabel, 'Visible', 'on');
+            
+            ax.hYLabel = get(ax.axh, 'YLabel');
+            set(ax.hYLabel, 'Visible', 'on');
 
 %             ax.addXLabel();
 %             ax.addYLabel();
@@ -3629,7 +3652,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     if isempty(hvec(i).Face)
                         drawnow;
                     end
-                    hvec(i).Face.Clipping = 'off';
+                    if isvalid(hvec(i))
+                        hvec(i).Face.Clipping = 'off';
+                    end
                 end
             end
             
