@@ -847,6 +847,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function uninstall(ax)
             ax.uninstallCallbacks();
             ax.uninstallClaListener();
+            ax.restoreBuiltinAxis();
+        end
+        
+        function restoreBuiltinAxis(ax)
+            sz = get(ax.axh, 'FontSize');
+            % set big first
+            ax.axh.XRuler.FontSize = sz;
+            ax.axh.YRuler.FontSize = sz;
+            axis(ax.axh, 'on');
         end
         
         function tf = checkLimsChanged(ax)
@@ -1924,6 +1933,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('tick', [], @isvector);
             p.addParameter('tickLabel', {}, @(x) isempty(x) || iscellstr(x));
             p.addParameter('tickAlignment', [], @(x) isempty(x) || iscellstr(x));
+            p.addParameter('alignOuterLabelsInwards', false, @islogical);
             p.addParameter('tickRotation', NaN, @isscalar);
             p.addParameter('useAutoAxisCollections', false, @islogical);
             p.addParameter('addAnchors', true, @islogical);
@@ -1987,6 +1997,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 tickAlignment = p.Results.tickAlignment;
             end
             
+            if p.Results.alignOuterLabelsInwards
+                if useX
+                    tickAlignment{1} = 'left';
+                    tickAlignment{end} = 'right';
+                else
+                    tickAlignment{1} = 'bottom'; % this is lower on the axis
+                    tickAlignment{end} = 'top';
+                end
+            end
+            
             ticks = sort(ticks);
             
 %             tickLen = ax.tickLength;
@@ -2042,12 +2062,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             else
                 % y axis ticks
                 % get bridge pointed in the right direction
-                if xor(ax.xReverse, otherSide);
-                    lo = 1;
-                    hi = 0;
-                else
+                if xor(ax.xReverse, otherSide)
                     lo = 0;
                     hi = 1;
+                else
+                    lo = 1;
+                    hi = 0;
                 end
                 
                 if numel(ticks) > 2
