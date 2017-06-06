@@ -2836,6 +2836,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('leaveInPlace', false, @islogical);
             p.addParameter('manualPos', 0, @isscalar); % position to place along non-orientation axis, when leaveInPlace is true
             p.addParameter('rotation', 0, @isscalar);
+            p.addParameter('showSpanLines', true, @islogical); % true to draw the line delineating the span, false for just the label
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -2891,23 +2892,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 va = repmat({'middle'}, size(xtext));
                 offset = 'axisPaddingLeft';
             end
-            
-            hl = line(xvals, yvals, 'LineWidth', lineWidth, 'Parent', ax.axhDraw);
             if iscell(color)
                 nc = numel(color);
             else
                 nc = size(color, 1);
             end
             wrap = @(i) mod(i-1, nc) + 1;
-            for i = 1:nSpan
-                if iscell(color)
-                    set(hl(i), 'Color', color{wrap(i)});
-                else
-                    set(hl(i), 'Color', color(wrap(i), :));
+            
+            if p.Results.showSpanLines
+                hl = line(xvals, yvals, 'LineWidth', lineWidth, 'Parent', ax.axhDraw);
+            
+                for i = 1:nSpan
+                    if iscell(color)
+                        set(hl(i), 'Color', color{wrap(i)});
+                    else
+                        set(hl(i), 'Color', color(wrap(i), :));
+                    end
                 end
+                AutoAxis.hideInLegend(hl);
+                set(hl, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
             end
-            AutoAxis.hideInLegend(hl);
-            set(hl, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
+            
             ht = AutoAxis.allocateHandleVector(nSpan);
             keep = AutoAxisUtilities.truevec(nSpan);
             for i = 1:nSpan
@@ -2934,37 +2939,54 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
             
-            if ~leaveInPlace
-                % build anchor for lines
-                if useX
-                    ai = AnchorInfo(hl, PositionType.Top, ax.axh, ...
-                        PositionType.Bottom, offset, 'xLabeledSpan below axis');
-                    ax.addAnchor(ai);
-                else
-                    ai = AnchorInfo(hl, PositionType.Right, ...
-                        ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
-                    ax.addAnchor(ai);
+            if p.Results.showSpanLines
+                if ~leaveInPlace
+                    % build anchor for lines
+                    if useX
+                        ai = AnchorInfo(hl, PositionType.Top, ax.axh, ...
+                            PositionType.Bottom, offset, 'xLabeledSpan below axis');
+                        ax.addAnchor(ai);
+                    else
+                        ai = AnchorInfo(hl, PositionType.Right, ...
+                            ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
+                        ax.addAnchor(ai);
+                    end
                 end
-            end
 
-            if ~isempty(ht)
-                % anchor labels to lines (always)
+                if ~isempty(ht)
+                    % anchor labels to lines (always)
+                    if useX
+                        ai = AnchorInfo(ht, PositionType.Top, ...
+                            hl, PositionType.Bottom, 'tickLabelOffset', ...
+                            'xLabeledSpan below ticks');
+                        ax.addAnchor(ai);
+                    else
+                        ai = AnchorInfo(ht, PositionType.Right, ...
+                            hl, PositionType.Left, 'tickLabelOffset', ...
+                            'yLabeledSpan left of ticks');
+                        ax.addAnchor(ai);
+                    end
+                end
+            else
+                % anchor labels to axis
                 if useX
-                    ai = AnchorInfo(ht, PositionType.Top, ...
-                        hl, PositionType.Bottom, 'tickLabelOffset', ...
-                        'xLabeledSpan below ticks');
-                    ax.addAnchor(ai);
-                else
-                    ai = AnchorInfo(ht, PositionType.Right, ...
-                        hl, PositionType.Left, 'tickLabelOffset', ...
-                        'yLabeledSpan left of ticks');
-                    ax.addAnchor(ai);
+                        ai = AnchorInfo(ht, PositionType.Top, ax.axh, ...
+                            PositionType.Bottom, offset, 'xLabeledSpan below axis');
+                        ax.addAnchor(ai);
+                    else
+                        ai = AnchorInfo(ht, PositionType.Right, ...
+                            ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
+                        ax.addAnchor(ai);
                 end
             end
             
             ht = AutoAxisUtilities.makecol(ht);
-            hl = AutoAxisUtilities.makecol(hl);
-            hlist = [hl; ht];
+            if p.Results.showSpanLines
+                hl = AutoAxisUtilities.makecol(hl);
+                hlist = [hl; ht];
+            else
+                hlist = ht;
+            end
             if ~leaveInPlace
                 % add handles to handle collections
                 if useX

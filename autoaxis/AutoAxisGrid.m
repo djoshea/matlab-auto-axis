@@ -122,10 +122,15 @@ classdef AutoAxisGrid < handle
             N = g.rows * g.cols;
         end
 
-        function ax = axisAt(g, row, col)
+        function ax = axisAt(g, row, col, varargin)
             if nargin < 3 || isempty(col)
                 [row, col] = g.indToRowCol(row);
             end
+            p = inputParser();
+            p.addParameter('polar', false, @islogical);
+            p.parse(varargin{:});
+            
+            
             assert(row <= g.rows && col <= g.cols, 'Subscripts out of range');
             current = g.handles{row, col};
 
@@ -136,7 +141,11 @@ classdef AutoAxisGrid < handle
                     delete(current);
                 end
                 pos = g.computePosition(row, col);
-                ax = axes('Parent', g.figure);
+                if p.Results.polar
+                    ax = polaraxes('Parent', g.figure);
+                else
+                    ax = axes('Parent', g.figure);
+                end
                 u = ax.Units;
                 ax.Units = 'centimeters';
                 ax.Position = pos;
