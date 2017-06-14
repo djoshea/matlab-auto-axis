@@ -2063,11 +2063,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % y axis ticks
                 % get bridge pointed in the right direction
                 if xor(ax.xReverse, otherSide)
-                    lo = 0;
-                    hi = 1;
-                else
                     lo = 1;
                     hi = 0;
+                else
+                    lo = 0;
+                    hi = 1;
                 end
                 
                 if numel(ticks) > 2
@@ -2940,7 +2940,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     keep(i) = false;
                     continue;
                 end
-                ht(i) = text(xtext(i), ytext(i), label{i}, ...
+                ht(i) = text(double(xtext(i)), double(ytext(i)), label{i}, ...
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
                     'Parent', ax.axhDraw, 'Interpreter', 'none', 'BackgroundColor', 'none', 'Rotation', p.Results.rotation);
                 if iscell(color)
@@ -3032,11 +3032,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('posY', PositionType.Top, @(x) isa(x, 'AutoAxis.PositionType'));
             p.addParameter('fontSize', ax.labelFontSize, @isscalar);
             p.addParameter('spacing', 'tickLabelOffset', @(x) true);
+            p.addParameter('offsetX', '-tickLabelOffset', @(x) true);
+            p.addParameter('offsetY', '-tickLabelOffset', @(x) true);
+            p.addParameter('stacking', 'vertical', @ischar);
             p.addParameter('fillColor', 'none', @(x) true);
             p.addParameter('fillAlpha', 1, @isscalar);
             p.parse(varargin{:});
             posX = p.Results.posX;
             posY = p.Results.posY;
+            
+            if isnumeric(labels)
+                labels = arrayfun(@num2str, labels, 'UniformOutput', false);
+            end  
             
             N = numel(labels);
             
@@ -3052,15 +3059,6 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 rev = false;
             end
             
-            top = posY == PositionType.Top;
-            if top
-                root = 1;
-                anchorToOffset = -1;
-            else
-                root = N;
-                anchorToOffset = 1;
-            end  
-            
             for i = 1:N
                 label = labels{i};
                 if iscell(colors)
@@ -3069,7 +3067,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     c = colors(i, :);
                 end
  
-                hvec(i) = text(0, (~rev * -i), label, 'FontSize', p.Results.fontSize, ...
+                if strcmp(p.Results.stacking, 'vertical')
+                    x = 0;
+                    y = (~rev * -i);
+                else
+                    y = 0;
+                    x = ~rev * i;
+                end
+                hvec(i) = text(x, y, label, 'FontSize', p.Results.fontSize, ...
                     'Color', c, 'HorizontalAlignment', posX.toHorizontalAlignment(), ...
                     'VerticalAlignment', posY.flip().toVerticalAlignment());
                 if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
@@ -3082,24 +3087,67 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                     
             end
-            
-             
-            for i = 1:N
-                if i == root
-                    % anchor to axis
-                    ai = AnchorInfo(hvec(i), posY, ax.axh, posY, 0, ...
-                        sprintf('colorLabel %s %s to axis %s', labels{i}, char(posY), char(posY)));
+
+            if strcmp(p.Results.stacking, 'vertical')
+                top = posY == PositionType.Top;
+                if top
+                    root = 1;
+                    anchorToOffset = -1;
                 else
-                    % anchor to text above/below
-                    ai = AnchorInfo(hvec(i), posY, hvec(i+anchorToOffset), posY.flip(), p.Results.spacing, ...
-                        sprintf('colorLabel %s %s to %s %s', labels{i}, char(posY), labels{i+anchorToOffset}, char(posY.flip())));
+                    root = N;
+                    anchorToOffset = 1;
+                end  
+            
+                % anchor the root to the axis and the rest to the one
+                % above/below
+                for i = 1:N
+                    if i == root
+                        % anchor root to axis
+                        ai = AnchorInfo(hvec(i), posY, ax.axh, posY, p.Results.offsetY, ...
+                            sprintf('colorLabel %s %s to axis %s', labels{i}, char(posY), char(posY)));
+                    else
+                        % anchor to text above/below
+                        ai = AnchorInfo(hvec(i), posY, hvec(i+anchorToOffset), posY.flip(), p.Results.spacing, ...
+                            sprintf('colorLabel %s %s to %s %s', labels{i}, char(posY), labels{i+anchorToOffset}, char(posY.flip())));
+                    end
+                    ax.addAnchor(ai);
                 end
+                
+                % anchor horizontally to axis
+                ai = AnchorInfo(hvec, posX, ax.axh, posX, p.Results.offsetX, ...
+                    sprintf('colorLabels to axis %s', char(posX), char(posX)));
                 ax.addAnchor(ai);
+            else
+                left = posX == PositionType.Left;
+                if left
+                    root = 1;
+                    anchorToOffset = -1;
+                else
+                    root = N;
+                    anchorToOffset = 1;
+                end  
+                
+                % anchor the root to the axis and the rest to the one
+                % left/right
+                for i = 1:N
+                    if i == root
+                        % anchor root to axis
+                        ai = AnchorInfo(hvec(i), posX, ax.axh, posX, p.Results.offsetX, ...
+                            sprintf('colorLabel %s %s to axis %s', labels{i}, char(posY), char(posX)));
+                    else
+                        % anchor to text left/left
+                        ai = AnchorInfo(hvec(i), posX, hvec(i+anchorToOffset), posX.flip(), p.Results.spacing, ...
+                            sprintf('colorLabel %s %s to %s %s', labels{i}, char(posX), labels{i+anchorToOffset}, char(posX.flip())));
+                    end
+                    ax.addAnchor(ai);
+                end
+                
+                % anchor horizontally to axis
+                ai = AnchorInfo(hvec, posY, ax.axh, posY, p.Results.offsetY, ...
+                    sprintf('colorLabels to axis %s', char(posY), char(posY)));
+                ax.addAnchor(ai);       
             end
             
-            ai = AnchorInfo(hvec, posX, ax.axh, posX, 0, ...
-                sprintf('colorLabels to axis %s', char(posX), char(posX)));
-            ax.addAnchor(ai);
             
 %             % add background box
 %             if ~isempty(p.Results.fillColor)
@@ -3115,7 +3163,6 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % put in top layer
             ax.addHandlesToCollection('topLayer', hvec);
- 
             
             % list as generated content
             ax.addHandlesToCollection('generated', hvec);
@@ -3799,8 +3846,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 
                 % lookup margin as property value or function handle
                 if ischar(info.margin)
+                    if strcmp(info.margin(1), '-')
+                        info.margin = info.margin(2:end);
+                        inv = true;
+                    else
+                        inv = false;
+                    end
                     try
                         info.margin = ax.(info.margin);
+                        if inv
+                            info.margin = -info.margin;
+                        end
                     catch
                         warning('Could not evaluate property %s', info.margin);
                     end

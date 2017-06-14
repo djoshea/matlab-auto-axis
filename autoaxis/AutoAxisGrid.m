@@ -269,7 +269,15 @@ classdef AutoAxisGrid < handle
                         h.Units = 'centimeters';
                         
                         % left bottom right top
-                        inset = max(h.LooseInset, h.TightInset);
+                        if strcmp(h.Visible, 'off') 
+                            if strcmp(h.LooseInsetMode, 'manual')
+                                inset = h.LooseInset;
+                            else
+                                inset = [0 0 0 0];
+                            end
+                        else
+                            inset = max(h.LooseInset, h.TightInset);
+                        end
                         left(r, c) = inset(1);
                         bottom(r,c) = inset(2);
                         right(r,c) = inset(3);
