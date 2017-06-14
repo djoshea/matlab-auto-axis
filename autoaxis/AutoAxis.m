@@ -412,6 +412,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         yAutoTicks
         yAutoMinorTicks
         yAutoTickLabels
+        
+        xExponent
+        yExponent
     end
     
     methods % Constructor
@@ -742,9 +745,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
            
             % these work faster than listening on xlim and ylim, but can
             % not update depending on how the axis limits are set
-            set(zoom(ax.axh),'ActionPreCallback',@ax.prePanZoomCallback);
+            if isa(ax.axh, 'matlab.graphics.axis.Axes') 
+                set(zoom(ax.axh),'ActionPreCallback',@ax.prePanZoomCallback);
+                set(zoom(ax.axh),'ActionPostCallback',@ax.postPanZoomCallback);
+            end
+            
             set(pan(figh),'ActionPreCallback',@ax.prePanZoomCallback);
-            set(zoom(ax.axh),'ActionPostCallback',@ax.postPanZoomCallback);
             set(pan(figh),'ActionPostCallback',@ax.postPanZoomCallback);
 
             % updates entire figure at once
@@ -759,7 +765,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % saving.
             hl(1) = addlistener(ax.axh, {'XDir', 'YDir'}, 'PostSet', @ax.axisCallback);
             hl(2) = addlistener(ax.axh, {'XLim', 'YLim'}, 'PostSet', @ax.axisIfLimsChangedCallback);
-            hl(3) = addlistener(ax.axh, {'XGrid', 'YGrid', 'XMinorGrid', 'YMinorGrid'}, 'PostSet', @ax.axisCallback);
+            if isa(ax.axh, 'matlab.graphics.axis.Axes') 
+                hl(3) = addlistener(ax.axh, {'XGrid', 'YGrid', 'XMinorGrid', 'YMinorGrid'}, 'PostSet', @ax.axisCallback);
+            end
 %             hl(3) = addlistener(ax.axh, {'Parent'}, 'PostSet',
 %             @(varargin) ax.installCallbacks); % has issues with
 %             AxesLayoutManager and zooming
@@ -2518,6 +2526,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('fontColor', ax.scaleBarFontColor, @(x) ischar(x) || isvector(x));
             p.addParameter('fontSize', ax.scaleBarFontSize, @(x) isscalar(x));
             p.addParameter('manualPositionAlongAxis', [], @(x) isempty(x) || isscalar(x));
+            p.addParameter('alignWithOtherScaleBar', true, @islogical);
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -2655,9 +2664,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         'xScaleBar at bottom of axis');
                     ax.addAnchor(ai);
                     if isempty(p.Results.manualPositionAlongAxis)
-                        ai = AnchorInfo(hrRef, PositionType.Right, ax.axh, ...
-                            PositionType.Right, @(a, varargin) a.axisPaddingBottom + a.scaleBarThickness, ...
-                            'xScaleBar flush with right edge of yScaleBar at right of axis');
+                        if p.Results.alignWithOtherScaleBar
+                            ai = AnchorInfo(hrRef, PositionType.Right, ax.axh, ...
+                                PositionType.Right, @(a, varargin) a.axisPaddingRight + a.scaleBarThickness, ...
+                                'xScaleBar flush with right edge of yScaleBar at right of axis');
+                        else
+                            ai = AnchorInfo(hrRef, PositionType.Right, ax.axh, ...
+                                PositionType.Right, 0, ...
+                                'xScaleBar flush with right edge of axis');
+                        end
                         ax.addAnchor(ai);
                     end
                     if ~isempty(ht)
@@ -2677,9 +2692,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         'yScaleBar at right of axis');
                     ax.addAnchor(ai);
                     if isempty(p.Results.manualPositionAlongAxis)
-                        ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
-                            PositionType.Bottom, @(a, varargin) a.axisPaddingBottom + a.scaleBarThickness, ...
-                            'yScaleBar flush with bottom of xScaleBar at bottom of axis');
+                        if p.Results.alignWithOtherScaleBar
+                            ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
+                                PositionType.Bottom, @(a, varargin) a.axisPaddingBottom + a.scaleBarThickness, ...
+                                'yScaleBar flush with bottom of xScaleBar at bottom of axis');
+                        else
+                            ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
+                                PositionType.Bottom, 0, ...
+                                'yScaleBar flush with bottom of xScaleBar at bottom of axis');
+                        end
                         ax.addAnchor(ai);
                     end
                     if ~isempty(ht)
@@ -3758,34 +3779,72 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             sz = get(ax.axh, 'FontSize');
             fs = 0.1;
             
-            % set big first
-            ax.axh.XRuler.FontSize = sz;
-            % fetch ticks
-            ax.xAutoTicks = ax.axh.XRuler.TickValues;
-            ax.xAutoTickLabels = ax.axh.XRuler.TickLabels;
-            ax.xAutoMinorTicks = ax.axh.XRuler.MinorTickValues;
-            % set small
-            ax.axh.XRuler.FontSize = fs;
-            ax.axh.XLabel.FontSize = sz;
+            if isa(ax.axh, 'matlab.graphics.axis.Axes')
+                % set big first
+                ax.axh.XRuler.FontSize = sz;
+                % fetch ticks
+                ax.xAutoTicks = ax.axh.XRuler.TickValues;
+                ax.xAutoTickLabels = ax.axh.XRuler.TickLabels;
+                ax.xAutoMinorTicks = ax.axh.XRuler.MinorTickValues;
+                % set small
+                ax.axh.XRuler.FontSize = fs;
+                ax.axh.XLabel.FontSize = sz;
+
+                % set big first
+                ax.axh.YRuler.FontSize = sz;
+                % fetch ticks
+                ax.yAutoTicks = ax.axh.YRuler.TickValues;
+                ax.yAutoTickLabels = ax.axh.YRuler.TickLabels;
+                ax.yAutoMinorTicks = ax.axh.YRuler.MinorTickValues;
+                
+                ax.xExponent = ax.axh.XRuler.Exponent;
+                ax.yExponent = ax.axh.YRuler.Exponent;
+                
+                % set small
+                ax.axh.YRuler.FontSize = fs;
+                ax.axh.YLabel.FontSize = sz;
             
-            % set big first
-            ax.axh.YRuler.FontSize = sz;
-            % fetch ticks
-            ax.yAutoTicks = ax.axh.YRuler.TickValues;
-            ax.yAutoTickLabels = ax.axh.YRuler.TickLabels;
-            ax.yAutoMinorTicks = ax.axh.YRuler.MinorTickValues;
-            % set small
-            ax.axh.YRuler.FontSize = fs;
-            ax.axh.YLabel.FontSize = sz;
-            
-            % update grid ticks too
-            if ~isempty(ax.axh.XGridHandle)
-                ax.axh.XGridHandle.MajorTick = ax.xAutoTicks;
-                ax.axh.XGridHandle.MinorTick = ax.xAutoTicks;
-            end
-            if ~isempty(ax.axh.YGridHandle)
-                ax.axh.YGridHandle.MajorTick = ax.yAutoTicks;
-                ax.axh.YGridHandle.MinorTick = ax.xAutoTicks;
+                % update grid ticks too
+                if ~isempty(ax.axh.XGridHandle)
+                    ax.axh.XGridHandle.MajorTick = ax.xAutoTicks;
+                    ax.axh.XGridHandle.MinorTick = ax.xAutoTicks;
+                end
+                if ~isempty(ax.axh.YGridHandle)
+                    ax.axh.YGridHandle.MajorTick = ax.yAutoTicks;
+                    ax.axh.YGridHandle.MinorTick = ax.xAutoTicks;
+                end
+                
+                ax.xExponent = ax.axh.XRuler.Exponent;
+                ax.yExponent = ax.axh.YRuler.Exponent;
+            else
+                if strcmp('Orientation', 'vertical')
+                    % set big first
+                    ax.axh.Ruler.FontSize = sz;
+                    % fetch ticks
+                    ax.yAutoTicks = ax.axh.Ruler.TickValues;
+                    ax.yAutoTickLabels = ax.axh.Ruler.TickLabels;
+                    ax.yAutoMinorTicks = ax.axh.Ruler.MinorTickValues;
+                    % set small
+                    ax.axh.Ruler.FontSize = fs;
+                    
+                    ax.xExponent = 0;
+                    ax.yExponent = ax.axh.Ruler.Exponent;
+                else
+                    % set big first
+                    ax.axh.Ruler.FontSize = sz;
+                    % fetch ticks
+                    ax.xAutoTicks = ax.axh.Ruler.TickValues;
+                    ax.xAutoTickLabels = ax.axh.Ruler.TickLabels;
+                    ax.xAutoMinorTicks = ax.axh.Ruler.MinorTickValues;
+                    % set small
+                    ax.axh.Ruler.FontSize = fs;
+                    ax.axh.Label.FontSize = sz;
+
+                    ax.yExponent = 0;
+                    ax.xExponent = ax.axh.Ruler.Exponent;
+                end
+                ax.axh.YLabel.FontSize = sz;
+                ax.axh.XLabel.FontSize = sz;
             end
         end
 
@@ -3820,6 +3879,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             ax.xReverse = strcmp(get(axh, 'XDir'), 'reverse');
             ax.yReverse = strcmp(get(axh, 'YDir'), 'reverse');
+            
+            set(axh, 'Units', axUnits);
+        end
+        
+        function updateAxisInset(ax)
+            % set x/yDataToUnits scaling from data to paper units
+            axh = ax.axh;
+            axUnits = get(axh, 'Units');
+
+            set(axh,'Units','centimeters');
+            set(axh, 'LooseInset', ax.axisMargin);
             
             set(axh, 'Units', axUnits);
         end

@@ -63,6 +63,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             % posType is AutoAxis.PositionType
 
             import AutoAxis.PositionType;
+            import AutoAxis.LocationCurrent;
             
             field = posType.getDirectField();
             if numel(infoVec) == 1
@@ -74,23 +75,23 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             pos = [];
             switch posType
                 case PositionType.VCenter
-                    top = LocationInfo.getAggregateValue(infoVec, PositionType.Top);
-                    bottom = LocationInfo.getAggregateValue(infoVec, PositionType.Bottom);
+                    top = LocationCurrent.getAggregateValue(infoVec, PositionType.Top);
+                    bottom = LocationCurrent.getAggregateValue(infoVec, PositionType.Bottom);
                     pos = (top+bottom)/2;
 
                 case PositionType.Height
-                    top = LocationInfo.getAggregateValue(infoVec, PositionType.Top);
-                    bottom = LocationInfo.getAggregateValue(infoVec, PositionType.Bottom);
+                    top = LocationCurrent.getAggregateValue(infoVec, PositionType.Top);
+                    bottom = LocationCurrent.getAggregateValue(infoVec, PositionType.Bottom);
                     pos = top - bottom;
 
                 case PositionType.HCenter
-                    left = LocationInfo.getAggregateValue(infoVec, PositionType.Left);
-                    right = LocationInfo.getAggregateValue(infoVec, PositionType.Right);
+                    left = LocationCurrent.getAggregateValue(infoVec, PositionType.Left);
+                    right = LocationCurrent.getAggregateValue(infoVec, PositionType.Right);
                     pos = (left+right)/2;
 
                 case PositionType.Width
-                    left = LocationInfo.getAggregateValue(infoVec, PositionType.Left);
-                    right = LocationInfo.getAggregateValue(infoVec, PositionType.Right);
+                    left = LocationCurrent.getAggregateValue(infoVec, PositionType.Left);
+                    right = LocationCurrent.getAggregateValue(infoVec, PositionType.Right);
                     pos = right - left;
             end
             if ~isempty(pos), return; end

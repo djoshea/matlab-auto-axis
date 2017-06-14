@@ -18,10 +18,14 @@ classdef AutoAxisGrid < handle
         
         spacing_x % rows + 1 vector of spacing in cm including left and right edges, in cm, from the edges of Position box
         spacing_y % cols + 1 vector of spacing in cm including top and bottom edges, in cm, from the edges of Position box
+        
+        isRoot = false;
+        rootGrid_I
     end
 
     properties(Dependent)
         N
+        rootGrid
     end
 
     methods
@@ -74,8 +78,11 @@ classdef AutoAxisGrid < handle
             if isa(g.Parent, 'matlab.ui.Figure')
                 clf(g.Parent);
                 g.figure = g.Parent;
+                g.isRoot = true;
             elseif isa(g.Parent, 'AutoAxisGrid')
                 g.figure = g.Parent.figure;
+                g.isRoot = false;
+                g.rootGrid_I = g.Parent.rootGrid;
             else
                 error('Unknown Parent type');
             end
@@ -120,6 +127,14 @@ classdef AutoAxisGrid < handle
 
         function N = get.N(g)
             N = g.rows * g.cols;
+        end
+        
+        function rootGrid = get.rootGrid(g)
+            if g.isRoot
+                rootGrid = g;
+            else
+                g.rootGrid = g.rootGrid_I;
+            end
         end
 
         function ax = axisAt(g, row, col, varargin)
@@ -268,6 +283,12 @@ classdef AutoAxisGrid < handle
                         u = h.Units;
                         h.Units = 'centimeters';
                         
+                        aa = AutoAxis.recoverForAxis(h);
+                        if ~isempty(aa)
+                            % cheaper than calling auto axis update()
+                            aa.updateAxisInset();
+                        end
+                        
                         % left bottom right top
                         if strcmp(h.Visible, 'off') 
                             if strcmp(h.LooseInsetMode, 'manual')
@@ -307,7 +328,7 @@ classdef AutoAxisGrid < handle
         end
         
         function update(g)
-            g.updateSpacing();
+            g.rootGrid.updatePositions();
         end
     end
 
