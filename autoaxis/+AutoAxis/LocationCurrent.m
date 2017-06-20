@@ -75,23 +75,23 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             pos = [];
             switch posType
                 case PositionType.VCenter
-                    top = LocationCurrent.getAggregateValue(infoVec, PositionType.Top);
-                    bottom = LocationCurrent.getAggregateValue(infoVec, PositionType.Bottom);
+                    top = LocationCurrent.getAggregateValue(infoVec, PositionType.Top, xReverse, yReverse);
+                    bottom = LocationCurrent.getAggregateValue(infoVec, PositionType.Bottom, xReverse, yReverse);
                     pos = (top+bottom)/2;
 
                 case PositionType.Height
-                    top = LocationCurrent.getAggregateValue(infoVec, PositionType.Top);
-                    bottom = LocationCurrent.getAggregateValue(infoVec, PositionType.Bottom);
+                    top = LocationCurrent.getAggregateValue(infoVec, PositionType.Top, xReverse, yReverse);
+                    bottom = LocationCurrent.getAggregateValue(infoVec, PositionType.Bottom, xReverse, yReverse);
                     pos = top - bottom;
 
                 case PositionType.HCenter
-                    left = LocationCurrent.getAggregateValue(infoVec, PositionType.Left);
-                    right = LocationCurrent.getAggregateValue(infoVec, PositionType.Right);
+                    left = LocationCurrent.getAggregateValue(infoVec, PositionType.Left, xReverse, yReverse);
+                    right = LocationCurrent.getAggregateValue(infoVec, PositionType.Right, xReverse, yReverse);
                     pos = (left+right)/2;
 
                 case PositionType.Width
-                    left = LocationCurrent.getAggregateValue(infoVec, PositionType.Left);
-                    right = LocationCurrent.getAggregateValue(infoVec, PositionType.Right);
+                    left = LocationCurrent.getAggregateValue(infoVec, PositionType.Left, xReverse, yReverse);
+                    right = LocationCurrent.getAggregateValue(infoVec, PositionType.Right, xReverse, yReverse);
                     pos = right - left;
             end
             if ~isempty(pos), return; end

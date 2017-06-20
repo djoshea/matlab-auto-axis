@@ -3114,25 +3114,28 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if top
                     root = 1;
                     anchorToOffset = -1;
+                    innerAnchorPosY = PositionType.Top;
                 else
                     root = N;
                     anchorToOffset = 1;
+                    innerAnchorPosY = PositionType.Bottom;
                 end  
             
                 % anchor the root to the axis and the rest to the one
                 % above/below
                 for i = 1:N
-                    if i == root
-                        % anchor root to axis
-                        ai = AnchorInfo(hvec(i), posY, ax.axh, posY, p.Results.offsetY, ...
-                            sprintf('colorLabel %s %s to axis %s', labels{i}, char(posY), char(posY)));
-                    else
+                    if i ~= root
                         % anchor to text above/below
-                        ai = AnchorInfo(hvec(i), posY, hvec(i+anchorToOffset), posY.flip(), p.Results.spacing, ...
+                        ai = AnchorInfo(hvec(i), innerAnchorPosY, hvec(i+anchorToOffset), innerAnchorPosY.flip(), p.Results.spacing, ...
                             sprintf('colorLabel %s %s to %s %s', labels{i}, char(posY), labels{i+anchorToOffset}, char(posY.flip())));
                     end
                     ax.addAnchor(ai);
                 end
+                
+                % anchor group to axis
+                ai = AnchorInfo(hvec, posY, ax.axh, posY, p.Results.offsetY, ...
+                    sprintf('colorLabel group %s to axis %s', char(posY), char(posY)));
+                ax.addAnchor(ai);
                 
                 % anchor horizontally to axis
                 ai = AnchorInfo(hvec, posX, ax.axh, posX, p.Results.offsetX, ...
@@ -3143,27 +3146,30 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if left
                     root = 1;
                     anchorToOffset = -1;
+                    innerAnchorPosX = PositionType.Left;
                 else
                     root = N;
                     anchorToOffset = 1;
-                end  
+                    innerAnchorPosX = PositionType.Right;
+                end
                 
                 % anchor the root to the axis and the rest to the one
                 % left/right
                 for i = 1:N
-                    if i == root
-                        % anchor root to axis
-                        ai = AnchorInfo(hvec(i), posX, ax.axh, posX, p.Results.offsetX, ...
-                            sprintf('colorLabel %s %s to axis %s', labels{i}, char(posY), char(posX)));
-                    else
+                    if i ~= root
                         % anchor to text left/left
-                        ai = AnchorInfo(hvec(i), posX, hvec(i+anchorToOffset), posX.flip(), p.Results.spacing, ...
+                        ai = AnchorInfo(hvec(i), innerAnchorPosX, hvec(i+anchorToOffset), innerAnchorPosX.flip(), p.Results.spacing, ...
                             sprintf('colorLabel %s %s to %s %s', labels{i}, char(posX), labels{i+anchorToOffset}, char(posX.flip())));
                     end
                     ax.addAnchor(ai);
                 end
                 
-                % anchor horizontally to axis
+                % anchor group to axis
+                ai = AnchorInfo(hvec, posX, ax.axh, posX, p.Results.offsetX, ...
+                    sprintf('colorLabel group %s to axis %s', char(posY), char(posX)));
+                ax.addAnchor(ai);
+                
+                % anchor vertically to axis
                 ai = AnchorInfo(hvec, posY, ax.axh, posY, p.Results.offsetY, ...
                     sprintf('colorLabels to axis %s', char(posY), char(posY)));
                 ax.addAnchor(ai);       
