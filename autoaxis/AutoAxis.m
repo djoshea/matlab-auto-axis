@@ -418,12 +418,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
     end
     
     methods % Constructor
-        function ax = AutoAxis(axh)
+        function ax = AutoAxis(axh, varargin)
             if nargin < 1 || isempty(axh)
                 axh = gca;
             end
             
-            ax = AutoAxis.createOrRecoverInstance(ax, axh);
+            ax = AutoAxis.createOrRecoverInstance(ax, axh, varargin{:});
         end
     end
     
@@ -590,7 +590,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax = getappdata(axh, 'AutoAxisInstance');
         end
         
-        function ax = createOrRecoverInstance(ax, axh)
+        function ax = createOrRecoverInstance(ax, axh, varargin)
             % if an instance is stored in this axis' UserData.autoAxis
             % then return the existing instance, otherwise create a new one
             % and install it
@@ -599,7 +599,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if isempty(axTest)
                 % not installed, create new
                 ax.initializeNewInstance(axh);
-                ax.installInstanceForAxis(axh);
+                ax.installInstanceForAxis(axh, varargin{:});
             else
                 % return the existing instance
                 ax = axTest;
@@ -731,12 +731,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.axisPadding = [];
         end
              
-        function installInstanceForAxis(ax, axh)
+        function installInstanceForAxis(ax, axh, varargin)
+            p =inputParser();
+            p.addParameter('installCallbacks', true, @islogical);
+            p.parse(varargin{:});
+            
             setappdata(axh, 'AutoAxisInstance', ax); 
 %             ax.addTitle();
 %             ax.addXLabelAnchoredToAxis();
 %             ax.addYLabelAnchoredToAxis();
-            ax.installCallbacks();
+            if p.Results.installCallbacks
+                ax.installCallbacks();
+            end
             ax.installClaListener();
         end
         
@@ -3128,8 +3134,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         % anchor to text above/below
                         ai = AnchorInfo(hvec(i), innerAnchorPosY, hvec(i+anchorToOffset), innerAnchorPosY.flip(), p.Results.spacing, ...
                             sprintf('colorLabel %s %s to %s %s', labels{i}, char(posY), labels{i+anchorToOffset}, char(posY.flip())));
-                    end
-                    ax.addAnchor(ai);
+                        ax.addAnchor(ai);
+                    end                    
                 end
                 
                 % anchor group to axis

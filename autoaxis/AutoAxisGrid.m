@@ -27,6 +27,20 @@ classdef AutoAxisGrid < handle
         N
         rootGrid
     end
+    
+    methods(Static)
+        function updateFigure(figh)
+            % call auto axis update for every managed axis in a figure
+            if nargin < 1
+                figh = gcf;
+            end
+            
+            g = AutoAxisGrid.recoverForFigure(figh);
+            if ~isempty(g) && isvalid(g)
+                g.update;
+            end
+        end
+    end
 
     methods
         function g = AutoAxisGrid(varargin)
@@ -125,6 +139,10 @@ classdef AutoAxisGrid < handle
             end
         end
 
+        function recoverForFigure(figh)
+            g = getappdata(figh, 'AutoAxisGridInstance');
+        end
+        
         function N = get.N(g)
             N = g.rows * g.cols;
         end
@@ -151,6 +169,7 @@ classdef AutoAxisGrid < handle
 
             if isa(current, 'matlab.graphics.axis.Axes') && isvalid(current)
                 ax = g.handles{row, col};
+                set(g.figure, 'CurrentAxes', ax);
             else
                 if ~isempty(current)
                     delete(current);
@@ -286,18 +305,19 @@ classdef AutoAxisGrid < handle
                         aa = AutoAxis.recoverForAxis(h);
                         if ~isempty(aa)
                             % cheaper than calling auto axis update()
-                            aa.updateAxisInset();
-                        end
-                        
-                        % left bottom right top
-                        if strcmp(h.Visible, 'off') 
-                            if strcmp(h.LooseInsetMode, 'manual')
-                                inset = h.LooseInset;
-                            else
-                                inset = [0 0 0 0];
-                            end
+%                             aa.updateAxisInset();
+                            inset = aa.axisMargin;
                         else
-                            inset = max(h.LooseInset, h.TightInset);
+                            % left bottom right top
+                            if strcmp(h.Visible, 'off') 
+                                if strcmp(h.LooseInsetMode, 'manual')
+                                    inset = h.LooseInset;
+                                else
+                                    inset = [0 0 0 0];
+                                end
+                            else
+                                inset = max(h.LooseInset, h.TightInset);
+                            end
                         end
                         left(r, c) = inset(1);
                         bottom(r,c) = inset(2);
@@ -329,6 +349,7 @@ classdef AutoAxisGrid < handle
         
         function update(g)
             g.rootGrid.updatePositions();
+            AutoAxis.updateFigure();
         end
     end
 
