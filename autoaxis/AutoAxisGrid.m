@@ -16,11 +16,13 @@ classdef AutoAxisGrid < handle
         PositionSpecified % in centimeters
         PositionCurrent % in centimeters
         
-        spacing_x % rows + 1 vector of spacing in cm including left and right edges, in cm, from the edges of Position box
-        spacing_y % cols + 1 vector of spacing in cm including top and bottom edges, in cm, from the edges of Position box
-        
         isRoot = false;
         rootGrid_I
+    end
+    
+    properties
+        spacing_x % rows + 1 vector of spacing in cm including left and right edges, in cm, from the edges of Position box
+        spacing_y % cols + 1 vector of spacing in cm including top and bottom edges, in cm, from the edges of Position box
     end
 
     properties(Dependent)
@@ -40,6 +42,12 @@ classdef AutoAxisGrid < handle
                 g.update;
             end
         end
+        
+        function ma = recoverForFigure(figh)
+            % recover the MultiAxis instance associated with figure figh
+            if nargin < 1, figh = gcf; end
+            ma = getappdata(figh, 'AutoAxisGridInstance');
+        end
     end
 
     methods
@@ -57,7 +65,7 @@ classdef AutoAxisGrid < handle
                 end
                 assert(isa(figh, 'matlab.ui.Figure'));
                 
-                g = getappdata(figh, 'AutoAxisGridInstance');
+                g = AutoAxisGrid.recoverForFigure(figh);
                 if isempty(g)
                     error('No AutoAxisGrid installed for figure. Install using AutoAxisGrid([figh], rows, cols, ...)');
                 end
@@ -75,6 +83,12 @@ classdef AutoAxisGrid < handle
             cols = varargin{2};
             varargin = varargin(3:end);
             
+            if nargin < 2 || isempty(cols)
+                N = rows;
+                rows = floor(sqrt(N));
+                cols = ceil(N / rows);
+            end
+            
             p = inputParser();
             p.addParameter('Parent', figh, @(x) isa(x, 'matlab.ui.Figure') || isa(x, 'AutoAxisGrid'));
             p.addParameter('Position', [], @(x) isempty(x) || isvector(x));
@@ -82,11 +96,6 @@ classdef AutoAxisGrid < handle
             p.addParameter('relWidth', [], @isvector);
             p.parse(varargin{:});
 
-            if nargin < 2 || isempty(cols)
-                N = rows;
-                rows = floor(sqrt(N));
-                cols = ceil(N / rows);
-            end
 
             g.Parent = p.Results.Parent;
             if isa(g.Parent, 'matlab.ui.Figure')
@@ -114,13 +123,8 @@ classdef AutoAxisGrid < handle
             g.cols = cols;
             g.handles = cell(g.rows, g.cols);
             
-            % set spacing to reasonable defualts, [left bottom right top]
-%             inset = get(g.figure, 'defaultAxesLooseInset');
-%             g.spacing_x = [inset(1); repmat(inset(1)+inset(3), rows-1, 1); inset(3)];
-%             g.spacing_y = [inset(4); repmat(inset(4)+inset(2), cols-1, 1); inset(2)];
-
-            g.spacing_x = zeros(cols+1, 1);
-            g.spacing_y = zeros(rows+1, 1);
+            g.spacing_x = nan(cols+1, 1);
+            g.spacing_y = nan(rows+1, 1);
 
             function vals = distribute(vals, n)
                 if isempty(vals)
@@ -139,10 +143,6 @@ classdef AutoAxisGrid < handle
             end
         end
 
-        function recoverForFigure(figh)
-            g = getappdata(figh, 'AutoAxisGridInstance');
-        end
-        
         function N = get.N(g)
             N = g.rows * g.cols;
         end
@@ -267,6 +267,9 @@ classdef AutoAxisGrid < handle
             
             spacing_x = g.spacing_x; %#ok<*PROPLC>
             spacing_y = g.spacing_y;
+            spacing_x(isnan(spacing_x)) = 0;
+            spacing_y(isnan(spacing_y)) = 0;
+            
             if ~includeOuterSpacing
                 spacing_x([1 end]) = 0;
                 spacing_y([1 end]) = 0;
@@ -292,7 +295,13 @@ classdef AutoAxisGrid < handle
             pos = [left bottom w h];
         end
         
-        function [spacing_x, spacing_y] = updateSpacing(g)
+        function updateSpacing(g)
+            % only need to update if any are left as nan meaning not yet
+            % specified
+            if ~any(isnan(g.spacing_x)) && ~any(isnan(g.spacing_y))
+                return;
+            end
+            
             [top, bottom, left, right] = deal(nan(g.rows, g.cols));
             for r = 1:g.rows
                 for c = 1:g.cols
@@ -328,23 +337,25 @@ classdef AutoAxisGrid < handle
                         
                     elseif isa(h, 'AutoAxisGrid')
                         
-                        [sx, sy] = h.updateSpacing();
-                        left(r, c) = sx(1);
-                        right(r, c) = sx(end);
-                        top(r, c) = sy(1);
-                        bottom(r,c) = sy(end);                        
+                        h.updateSpacing();
+                        left(r, c) = h.spacing_x(1);
+                        right(r, c) = h.spacing_x(end);
+                        top(r, c) = h.spacing_y(1);
+                        bottom(r,c) = h.spacing_y(end);                        
                     end
                 end
             end
                         
-            spacing_x = [nanmax(left, [], 1), 0]' + [0, nanmax(right, [], 1)]';
+            spacing_x = [nanmax(left, [], 1), 0]' + [0, nanmax(right, [], 1)]'; %#ok<*PROP>
             spacing_y = [nanmax(top, [], 2); 0] + [0; nanmax(bottom, [], 2)];
             
             spacing_x(isnan(spacing_x)) = 0;
             spacing_y(isnan(spacing_y)) = 0;
             
-            g.spacing_x = spacing_x;
-            g.spacing_y = spacing_y;
+            % use the computed values to update the nans in spacing_x and
+            % spacing_y (considered unknown)
+            g.spacing_x(isnan(g.spacing_x)) = spacing_x(isnan(g.spacing_x));
+            g.spacing_y(isnan(g.spacing_y)) = spacing_y(isnan(g.spacing_y));
         end
         
         function update(g)

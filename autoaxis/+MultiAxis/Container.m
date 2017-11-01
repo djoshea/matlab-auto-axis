@@ -310,7 +310,8 @@ classdef Container < handle
                 elseif c.nCols == 1
                     col = 1;
                 else
-                    error('Specify row, col for non-vector grid');
+%                     error('Specify row, col for non-vector grid');
+                    [row, col] = ind2sub([c.nRows, c.nCols], row);
                 end
             end
             

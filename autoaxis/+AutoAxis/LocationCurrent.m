@@ -249,6 +249,71 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         loc.left = posv(1);
                         loc.right = posv(1) + posv(3);
                     end
+                    
+                case 'image'
+                    xdata = get(loc.h, 'XData');
+                    ydata = get(loc.h, 'YData');
+                    cdata = get(loc.h, 'CData');
+                    nX = size(cdata, 2);
+                    if isscalar(xdata)
+                        if nX == 1
+                            % each tile is 1 wide
+                            xdata(2) = xdata(1); 
+                            padX = 0.5;
+                        else
+                            % each tile is 1 wide
+                            xdata(2) = xdata(1) + (nX-1);
+                            padX = 0.5;
+                        end
+                    else
+                        if nX == 1
+                            % each tile is 3 * diff(xdata)
+                            padX = xdata(2) - xdata(1);
+                        else
+                            % xdata spans the centers of the edge tiles
+                            padX = (xdata(2) - xdata(1)) / (nX - 1) / 2; 
+                        end
+                    end
+                    
+                    nY = size(cdata, 1);
+                    if isscalar(ydata)
+                        if nY == 1
+                            ydata(2) = ydata(1); 
+                            padY = 0.5;
+                        else
+                            ydata(2) = ydata(1) + (nY-1);
+                            padY = 0.5;
+                        end
+                    else
+                        if nY == 1
+                            padY = ydata(2) - ydata(1);
+                        else
+                            padY = (ydata(2) - ydata(1)) / (nY - 1) / 2; 
+                        end
+                    end
+                    
+                    % correct for the half pixel offset
+                    xdata(1) = xdata(1) - padX;
+                    xdata(2) = xdata(2) + padX;
+                    ydata(1) = ydata(1) - padY;
+                    ydata(2) = ydata(2) + padY;
+                    
+                    if yReverse
+                        loc.top = ydata(1);
+                        loc.bottom = ydata(2);
+                    else
+                        loc.top = ydata(2);
+                        loc.bottom = ydata(1);
+                    end
+                    if xReverse
+                        loc.right = xdata(1);
+                        loc.left = ydata(2);
+                    else
+                        loc.right = xdata(2);
+                        loc.left = xdata(1);
+                    end
+                otherwise
+                    error('Unknown handle type %s', loc.type);
             end
             
             
@@ -789,7 +854,147 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         loc.left = p(1);
                         loc.right = p(1) + p(3);
                     end
+                    
+                    
+                case 'image'
+                    if xReverse
+                        xdata = [loc.right loc.left];
+                    else
+                        xdata = [loc.left loc.right];
+                    end
+                    if yReverse
+                        ydata = [loc.top loc.bottom];
+                    else
+                        ydata = [loc.bottom loc.top];
+                    end
+                    
+                    switch posType
+                        case PositionType.Top
+                            if translateDontScale
+                                if yReverse
+                                    % top is ydata(1)
+                                    ydata = ydata - (ydata(1) - value);
+                                else
+                                    ydata = ydata - (ydata(2) - value);
+                                end
+                            else
+                                if yReverse
+                                    % top is ydata(1)
+                                    ydata(1) = value;
+                                else
+                                    ydata(2) = value;
+                                end
+                            end
+                        case PositionType.Bottom
+                            if translateDontScale
+                                if yReverse
+                                    % bottom is ydata(2)
+                                    ydata = ydata - (ydata(2) - value);
+                                else
+                                    ydata = ydata - (ydata(1) - value);
+                                end
+                            else
+                                if yReverse
+                                    % bottom is ydata(2)
+                                    ydata(2) = value;
+                                else
+                                    ydata(1) = value;
+                                end
+                            end
+                        case PositionType.VCenter
+                            ydata = ydata - (mean(ydata) - value);
+                            
+                        case PositionType.Height
+                            % maintain vertical center
+                            ydata = mean(ydata) + [-value/2 value/2];
+                            
+                        case PositionType.Right
+                            if translateDontScale
+                                if xReverse
+                                    % right is xdata(1)
+                                    xdata = xdata - (xdata(1) - value);
+                                else
+                                    xdata = xdata - (xdata(2) - value);
+                                end
+                            else
+                                if xReverse
+                                    % right is xdata(1)
+                                    xdata(1) = value;
+                                else
+                                    xdata(2) = value;
+                                end
+                            end
+                        case PositionType.Left
+                            if translateDontScale
+                                if xReverse
+                                    % left is xdata(2)
+                                    xdata = xdata - (xdata(2) - value);
+                                else
+                                    xdata = xdata - (xdata(1) - value);
+                                end
+                            else
+                                if xReverse
+                                    % left is xdata(2)
+                                    xdata(2) = value;
+                                else
+                                    xdata(1) = value;
+                                end
+                            end
+                        case PositionType.HCenter
+                            xdata = xdata - (mean(xdata) - value);
+                            
+                        case PositionType.Width
+                            % maintain horizontal center
+                            xdata = mean(xdata) + [-value/2 value/2];
+                            
+                    end
+                    
+                    if yReverse
+                        loc.top = ydata(1);
+                        loc.bottom = ydata(2);
+                    else
+                        loc.top = ydata(2);
+                        loc.bottom = ydata(1);
+                    end
+                    if xReverse
+                        loc.right = xdata(1);
+                        loc.left = ydata(2);
+                    else
+                        loc.right = xdata(2);
+                        loc.left = xdata(1);
+                    end
+                    
+                    cdata = get(h, 'CData');
+                    nX = size(cdata, 2);
+                    nY = size(cdata, 1);
+                    
+                    % compute new padding and subtract back off
+                    if nX == 1
+                        % each tile is 3 * diff(xdata)
+                        padX = (xdata(2) - xdata(1)) / 3;
+                    else
+                        % xdata spans the centers of the edge tiles
+                        padX = (xdata(2) - xdata(1)) / nX / 2; 
+                    end
+                    
+                    if nY == 1
+                        padY = (ydata(2) - ydata(1)) / 3;
+                    else
+                        padY = (ydata(2) - ydata(1)) / nY / 2; 
+                    end
+                    
+                    % add back in the half pixel offset
+                    xdata(1) = xdata(1) + padX;
+                    xdata(2) = xdata(2) - padX;
+                    ydata(1) = ydata(1) + padY;
+                    ydata(2) = ydata(2) - padY;
+
+                    set(h, 'XData', xdata, 'YData', ydata, 'Clipping', 'off');
+                    
+                otherwise
+                    error('Unknown type %s', loc.type);
             end
+            
         end
     end   
 end
