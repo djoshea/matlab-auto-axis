@@ -2676,6 +2676,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('alpha', 1, @isscalar);
             p.addParameter('interval', [], @(x) isempty(x) || isvector(x)); % add a rectangle interval behind the marker to indicate a range of locations
             p.addParameter('intervalColor', [0.5 0.5 0.5], @(x) isvector(x) || ischar(x) || isempty(x));
+            
+            p.addParameter('distribution', [], @(x) isempty(x) || isvector(x)); % like interval but alpha value varies with distribution
+            p.addParameter('distributionBins', [], @(x) isempty(x) || isvector(x)); % left edges of the bins
+            p.addParameter('distributionColor', [0.5 0.5 0.5], @(x) isvector(x) || ischar(x) || isempty(x));
+            
             p.addParameter('textOffsetY', 0, @isscalar);
             p.addParameter('textOffsetX', 0, @isscalar);
             p.addParameter('horizontalAlignment', 'center', @ischar);
@@ -2705,6 +2710,31 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
             
+            % add the distribution image
+            hdist = [];
+            hasDistribution = false;
+            if ~isempty(p.Results.distribution)
+                dist = p.Results.distribution;
+                dist = dist - min(dist(:));
+                dist = dist ./ max(dist(:));
+                bins = p.Results.distributionBins;
+             
+                if ~isempty(dist)
+                    assert(numel(dist) == numel(bins));
+                    hasDistribution = true;
+                    
+                    % 1 x bins x 3
+                    imdata = shiftdim(repmat(TrialDataUtilities.Color.toRGB(p.Results.distributionColor), numel(bins), 1), -1);
+                    alphadata = makerow(dist);
+                    
+                    % set the height later
+                    hdist = image(bins(1), yl(1), imdata, ...
+                        'AlphaData', alphadata, ...
+                        'YLimInclude', 'off', 'XLimInclude', 'off', 'Clipping', 'off', 'Parent', ax.axhDraw);
+                    AutoAxis.hideInLegend(hdist);
+                end
+            end
+            
             % plot marker
 %             holdState = ishold(ax.axhDraw);
 %             hold(ax.axhDraw, 'on');
@@ -2713,7 +2743,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %                 'MarkerEdgeColor', 'none', 'YLimInclude', 'off', 'XLimInclude', 'off', ...
 %                 'Clipping', 'off');   
             
-            hm = rectangle('Position', [p.Results.x - ax.markerWidth/2, yl(1) ax.markerWidth, ax.markerHeight], 'Curvature', ax.markerCurvature, ...
+            hm = rectangle('Position', [p.Results.x - ax.markerWidth/2, yl(1), ax.markerWidth, ax.markerHeight], 'Curvature', ax.markerCurvature, ...
                 'EdgeColor', 'none', 'FaceColor', p.Results.markerColor, ...
                 'YLimInclude', 'off', 'XLimInclude', 'off', 'Clipping', 'off', 'Parent', ax.axhDraw);
             hm.FaceColor(4) = p.Results.alpha;
@@ -2773,10 +2803,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     hm, PositionType.VCenter, 0, 'markerX interval rect to marker');
                 ax.addAnchor(ai);
             end
+            if hasDistribution
+                ai = AutoAxis.AnchorInfo(hdist, PositionType.Height, ...
+                    [], @(ax, info) ax.markerHeight/3, 0, 'markerX distribution rect height');
+                ax.addAnchor(ai);
+                ai = AutoAxis.AnchorInfo(hdist, PositionType.VCenter, ...
+                    hm, PositionType.VCenter, 0, 'markerX distribution rect to marker');
+                ax.addAnchor(ai);
+            end
                         
             % add to belowX handle collection to update the dependent
             % anchors
-            hlist = [hr; hm; ht]; % order here matters, place error interval below marker
+            hlist = [hm; hr; hdist; ht]; % order here matters, place error interval below marker
             ax.addHandlesToCollection('belowX', hlist);
             
             % list as generated content
@@ -4217,8 +4255,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 
             children = ax.axh.Children;
             mask = ismember(children, hvec);
-            hvecMask = ismember(hvec, children);
-            children = [flipud(hvec(hvecMask)); children(~mask)];
+%             hvecMask = ismember(hvec, children);
+%             children = [flipud(hvec(hvecMask)); children(~mask)];
+            children = [children(mask); children(~mask)];
             ax.axh.Children = children;
         end
         
