@@ -1879,7 +1879,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         infoNext = ax.xAutoBridgeInfo(i+1);
                         start = infoThis.zero + infoThis.stop;
                         stop = infoNext.start + infoNext.zero;
-                        hrect = rectangle('Position', [start 0 stop-start 1], 'FaceColor', ax.figh.Color, 'EdgeColor', 'none');
+                        hrect = rectangle('Position', [start 0 stop-start 1], 'FaceColor', ax.figh.Color, 'EdgeColor', 'none', 'Parent', ax.axhDraw);
                         ax.addAnchor(AnchorInfo(hrect, PositionType.Top, ax.axh, PositionType.Top, 0, 'gridMasking'));
                         ax.addAnchor(AnchorInfo(hrect, PositionType.Bottom, ax.axh, PositionType.Bottom, 0, 'gridMaskingRect', 'translateDontScale', false));
                         hlist(end+1) = hrect; %#ok<AGROW>
@@ -1914,7 +1914,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         stop = infoNext.start + infoNext.zero;
                         hrect = rectangle('Position', [0 start 1 stop-start], ...
                             'FaceColor', ax.figh.Color, 'EdgeColor', 'none', ...
-                            'XLimInclude', 'off', 'YLimInclude', 'off');
+                            'XLimInclude', 'off', 'YLimInclude', 'off', 'Parent', ax.axhDraw);
                         ax.addAnchor(AnchorInfo(hrect, PositionType.Left, ax.axh, PositionType.Left, 0, 'gridMasking'));
                         ax.addAnchor(AnchorInfo(hrect, PositionType.Right, ax.axh, PositionType.Right, 0, 'gridMaskingRect', 'translateDontScale', false));
                         hlist(end+1) = hrect; %#ok<AGROW>

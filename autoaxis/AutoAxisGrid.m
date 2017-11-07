@@ -18,9 +18,12 @@ classdef AutoAxisGrid < handle
         
         isRoot = false;
         rootGrid_I
+        
+        spacing_x_I
+        spacing_y_I
     end
     
-    properties
+    properties(Dependent)
         spacing_x % rows + 1 vector of spacing in cm including left and right edges, in cm, from the edges of Position box
         spacing_y % cols + 1 vector of spacing in cm including top and bottom edges, in cm, from the edges of Position box
     end
@@ -123,8 +126,8 @@ classdef AutoAxisGrid < handle
             g.cols = cols;
             g.handles = cell(g.rows, g.cols);
             
-            g.spacing_x = nan(cols+1, 1);
-            g.spacing_y = nan(rows+1, 1);
+            g.spacing_x_I = nan(cols+1, 1);
+            g.spacing_y_I = nan(rows+1, 1);
 
             function vals = distribute(vals, n)
                 if isempty(vals)
@@ -247,6 +250,58 @@ classdef AutoAxisGrid < handle
                 end
             end
         end
+        
+        function v = get.spacing_x(g)
+            v = g.spacing_x_I;
+            v(isnan(v)) = 0;
+        end
+        
+        function v = get.spacing_y(g)
+            v = g.spacing_y_I;
+            v(isnan(v)) = 0;
+        end
+        
+        function set.spacing_x(g, v)
+            % support 2 or 3 elements in lieu of specifying all of them
+            assert(isvector(v));
+            new = g.spacing_x_I;
+            if isempty(new)
+                new = zeros(g.rows, 1);
+            end
+            if numel(v) == 2
+                new(1) = v(1);
+                new(end) = v(2);
+            elseif numel(v) == 3
+                new(1) = v(1);
+                new(2:end-1) = v(2);
+                new(end) = v(3);
+            else
+                assert(numel(v) == g.rows + 1, 'Value must have 2, 3, or rows+1 elements');
+                new = v;
+            end
+            g.spacing_x_I = new;
+        end
+        
+        function set.spacing_y(g, v)
+            % support 2 or 3 elements in lieu of specifying all of them
+            assert(isvector(v));
+            new = g.spacing_y_I;
+            if isempty(new)
+                new = zeros(g.cols, 1);
+            end
+            if numel(v) == 2
+                new(1) = v(1);
+                new(end) = v(2);
+            elseif numel(v) == 3
+                new(1) = v(1);
+                new(2:end-1) = v(2);
+                new(end) = v(3);
+            else
+                assert(numel(v) == g.cols + 1, 'Value must have 2, 3, or cols+1 elements');
+                new = v;
+            end
+            g.spacing_y_I = new;
+        end
     end
     
     methods(Hidden)
@@ -298,7 +353,7 @@ classdef AutoAxisGrid < handle
         function updateSpacing(g)
             % only need to update if any are left as nan meaning not yet
             % specified
-            if ~any(isnan(g.spacing_x)) && ~any(isnan(g.spacing_y))
+            if ~any(isnan(g.spacing_x_I)) && ~any(isnan(g.spacing_y_I))
                 return;
             end
             
@@ -354,8 +409,8 @@ classdef AutoAxisGrid < handle
             
             % use the computed values to update the nans in spacing_x and
             % spacing_y (considered unknown)
-            g.spacing_x(isnan(g.spacing_x)) = spacing_x(isnan(g.spacing_x));
-            g.spacing_y(isnan(g.spacing_y)) = spacing_y(isnan(g.spacing_y));
+            g.spacing_x_I(isnan(g.spacing_x_I)) = spacing_x(isnan(g.spacing_x_I));
+            g.spacing_y_I(isnan(g.spacing_y_I)) = spacing_y(isnan(g.spacing_y_I));
         end
         
         function update(g)
