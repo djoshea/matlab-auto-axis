@@ -1892,7 +1892,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 xticks = unique(cat(1, xticks{:}));
                 xticksminor = unique(cat(1, xticksminor{:}));
                 ax.axh.XTick = xticks;
-                ax.axh.XRuler.MinorTickValues = xticksminor;
+                if ~verLessThan('matlab', 'R2017a')
+                    ax.axh.XRuler.MinorTickValues = xticksminor;
+                end
             end
 
             if ~isempty(ax.yAutoBridgeInfo)
@@ -1926,7 +1928,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 yticks = unique(cat(1, yticks{:}));
                 yticksminor = unique(cat(1, yticksminor{:}));
                 ax.axh.YTick = yticks;
-                ax.axh.YRuler.MinorTickValues = yticksminor;
+                if ~verLessThan('matlab', 'R2017a')
+                    ax.axh.YRuler.MinorTickValues = yticksminor;
+                end
             end
 
             % remove after the new ones are added by addTickBridge
