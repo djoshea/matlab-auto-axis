@@ -72,6 +72,14 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
         function ha = get.ha(info)
             ha = AutoAxisUtilities.makecol(info.ha);
         end
+        
+        function tf = specifiesPosition(info, pos)
+            import AutoAxis.PositionType;
+            posvec = [info.pos];
+            tf = posvec == pos | posvec == pos.flip() | ...
+                (pos == PositionType.HCenter & posvec.isX() & ~posvec.specifiesSize()) | ...
+                (pos == PositionType.VCenter & posvec.isY() & ~posvec.specifiesSize());
+        end
     end
         
 end

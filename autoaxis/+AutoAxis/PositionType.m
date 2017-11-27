@@ -40,21 +40,22 @@ classdef PositionType < uint32
             end
         end
         
+        
         function tf = isX(pos)
             import AutoAxis.PositionType;
-            tf = pos == PositionType.Left || pos == PositionType.Right || ...
-                pos == PositionType.HCenter || pos == PositionType.Width;
+            tf = pos == PositionType.Left | pos == PositionType.Right | ...
+                pos == PositionType.HCenter | pos == PositionType.Width;
         end
 
         function tf = isY(pos)
             import AutoAxis.PositionType;
-            tf = pos == PositionType.Bottom || pos == PositionType.Top || ...
-                pos == PositionType.VCenter || pos == PositionType.Height;
+            tf = pos == PositionType.Bottom | pos == PositionType.Top | ...
+                pos == PositionType.VCenter | pos == PositionType.Height;
         end
         
         function tf = specifiesSize(pos)
             import AutoAxis.PositionType;
-            tf = pos == PositionType.Width || pos == PositionType.Height;
+            tf = pos == PositionType.Width | pos == PositionType.Height;
         end
 
         function fields = getLocationFieldsAffected(pos)
@@ -67,23 +68,31 @@ classdef PositionType < uint32
             end
         end
         
-        function posInv = flip(pos)
+        function out = flip(pos)
             import AutoAxis.PositionType;
-            switch pos
-                case PositionType.HCenter
-                    posInv = PositionType.HCenter;
-                case PositionType.Left
-                    posInv = PositionType.Right;
-                case PositionType.Right
-                    posInv = PositionType.Left;
-                case PositionType.VCenter
-                    posInv = PositionType.VCenter;
-                case PositionType.Top
-                    posInv = PositionType.Bottom;
-                case PositionType.Bottom
-                    posInv = PositionType.Top;
-                otherwise
-                    error('Not valid for flip');
+            out = pos;
+            for iP = 1:numel(pos)
+                switch pos(iP)
+                    case PositionType.HCenter
+                        posInv = PositionType.HCenter;
+                    case PositionType.Left
+                        posInv = PositionType.Right;
+                    case PositionType.Right
+                        posInv = PositionType.Left;
+                    case PositionType.VCenter
+                        posInv = PositionType.VCenter;
+                    case PositionType.Top
+                        posInv = PositionType.Bottom;
+                    case PositionType.Bottom
+                        posInv = PositionType.Top;
+                    
+                    case {PositionType.Width, PositionType.Height, PositionType.Literal, PositionType.MarkerDiameter}
+                        posInv = pos(iP);
+                        
+                    otherwise
+                        error('Not valid for flip');
+                end
+                out(iP) = posInv;
             end
         end
         
