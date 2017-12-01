@@ -140,6 +140,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
     
     % internal properties
     properties(SetAccess=protected)
+        enabled = true;
+        
         axisMargin_I % holds data for axis margin
         requiresReconfigure = true;
         installedCallbacks = false;
@@ -232,6 +234,24 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         xAutoMinor
         yAutoMajor
         yAutoMinor
+    end
+    
+    methods % Constructor
+        function ax = AutoAxis(axh, varargin)
+            if nargin < 1 || isempty(axh)
+                axh = gca;
+            end
+            
+            ax = AutoAxis.createOrRecoverInstance(ax, axh, varargin{:});
+        end
+        
+        function enable(ax)
+            ax.enabled = true;
+        end
+        
+        function disable(ax)
+            ax.enabled = false;
+        end
     end
     
     methods % Implementations for dependent properties above
@@ -474,15 +494,6 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
     end
     
-    methods % Constructor
-        function ax = AutoAxis(axh, varargin)
-            if nargin < 1 || isempty(axh)
-                axh = gca;
-            end
-            
-            ax = AutoAxis.createOrRecoverInstance(ax, axh, varargin{:});
-        end
-    end
     
     methods(Static) % Static utils and figure specific functions
         function hideInLegend(h)
@@ -576,6 +587,30 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     return;
                 end
             end  
+        end
+        
+        function enableFigure(figh)
+            % call auto axis update for every managed axis in a figure
+            if nargin < 1
+                figh = gcf;
+            end
+            
+            axCell = AutoAxis.recoverForFigure(figh);
+            for i = 1:numel(axCell)
+                axCell{i}.enable();
+            end
+        end
+        
+        function disableFigure(figh)
+            % call auto axis update for every managed axis in a figure
+            if nargin < 1
+                figh = gcf;
+            end
+            
+            axCell = AutoAxis.recoverForFigure(figh);
+            for i = 1:numel(axCell)
+                axCell{i}.disable();
+            end
         end
         
         function updateFigure(figh)
@@ -3769,7 +3804,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             [hl, ht] = ax.addLocationIndicator('y', varargin{:}, 'otherSide', true); 
         end
         
-        function himg = addColorbar(ax, varargin)
+        function hout = addColorbar(ax, varargin)
             import AutoAxis.PositionType;
             import AutoAxis.AnchorInfo;
             
@@ -3819,6 +3854,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %                 hrect = rectangle('Position', [0 0 1 1], 'FaceColor', p.Results.backgroundColor, ...
 %                     'FaceAlpha', p.Results.backgroundAlpha, ...
 %                     'EdgeColor', 'none', 'Parent', ax.axhDraw, 'XLimInclude', 'off', 'YLimInclude', 'off');
+            else
+                hrect = [];
             end
             
             % cm sizes along bar and bar thickness
@@ -3941,6 +3978,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~holdState
                 hold(ax.axhDraw, 'off');
             end
+            
+            hout.himg = himg;
+            hout.hhi = hr;
+            hout.hlo = hl;
+            hout.hc = hc;
+            hout.hcnl = hcnl;
+            hout.hrect = hrect;
         end
             
     end
@@ -4189,6 +4233,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
         
         function update(ax)
+            if ~ax.enabled
+                return;
+            end
+            
             if ~ishandle(ax.axh)
                 %ax.uninstall();
                 return;
