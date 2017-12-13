@@ -2391,7 +2391,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
             
-            if isempty(labels)
+            if isempty(labels) || numel(labels) ~= numel(ticks)
                 ticks(abs(ticks) < 10*eps) = 0;
                 labels = sprintfc('%g', ticks / 10^exponent);
             end
