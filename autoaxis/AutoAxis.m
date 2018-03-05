@@ -3065,16 +3065,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % build anchor for rectangle and label
             if p.Results.addAnchors
                 if useX
+                    % for x scale bar
                     ai = AnchorInfo(hrRef, PositionType.Height, [], 'scaleBarThickness', ...
                         0, 'xScaleBar thickness');
                     ax.addAnchor(ai);
-%                     ai = AnchorInfo(hrRef, PositionType.Top, ax.axh, ...
-%                         PositionType.Bottom, 'axisPaddingBottom', ...
-%                         'xScaleBar at bottom of axis');
                     ai = AnchorInfo(hrRef, PositionType.Top, ax.axh, ...
-                        PositionType.Bottom, 0, ...
+                        PositionType.Bottom, 'axisPaddingBottom', ...
                         'xScaleBar at bottom of axis');
-%                     ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
+%                     ai = AnchorInfo(hrRef, PositionType.Top, ax.axh, ...
 %                         PositionType.Bottom, 0, ...
 %                         'xScaleBar at bottom of axis');
                     ax.addAnchor(ai);
@@ -3099,6 +3097,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         ax.addAnchor(ai);
                     end
                 else
+                    % for y scale bar
                     ai = AnchorInfo(hrRef, PositionType.Width, [], 'scaleBarThickness', 0, ...
                         'yScaleBar thickness');
                     ax.addAnchor(ai);
@@ -3108,19 +3107,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     ax.addAnchor(ai);
                     if isempty(p.Results.manualPositionAlongAxis)
                         if p.Results.alignWithOtherScaleBar
-%                             ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
-%                                 PositionType.Bottom, @(a, varargin) a.axisPaddingBottom + a.scaleBarThickness, ...
-%                                 'yScaleBar flush with bottom of xScaleBar at bottom of axis');
                             ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
-                                PositionType.Bottom, @(a, varargin) a.scaleBarThickness, ...
+                                PositionType.Bottom, @(a, varargin) a.axisPaddingBottom + a.scaleBarThickness, ...
                                 'yScaleBar flush with bottom of xScaleBar at bottom of axis');
 %                             ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
-%                                 PositionType.Bottom, 0, ...
+%                                 PositionType.Bottom, @(a, varargin) a.scaleBarThickness, ...
 %                                 'yScaleBar flush with bottom of xScaleBar at bottom of axis');
                         else
                             ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
                                 PositionType.Bottom, 0, ...
-                                'yScaleBar flush with bottom of xScaleBar at bottom of axis');
+                                'yScaleBar flush with bottom edge of axis');
                         end
                         ax.addAnchor(ai);
                     end
@@ -3809,14 +3805,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             import AutoAxis.AnchorInfo;
             
             p = inputParser();
-            p.addOptional('cmap', [], @(x) isa(x, 'function_handle') || ismatrix(x) || isempty(x));
+            p.addParameter('cmap', [], @(x) isa(x, 'function_handle') || ismatrix(x) || isempty(x));
          
             p.addParameter('fontSize', ax.labelFontSize, @isscalar);
             p.addParameter('location', AutoAxis.FullPositionSpec.outsideRightFullHeight(), @(x) isa(x, 'AutoAxis.FullPositionSpec')); 
             
-            p.addParameter('orientation', 'horizontal', @ischar);
+            p.addParameter('orientation', 'vertical', @ischar);
             p.addParameter('width', NaN, @isscalar);
             p.addParameter('height', NaN, @isscalar);
+            p.addParameter('limits', [], @isvector);
+            p.addParameter('units', '', @ischar);
+            p.addParameter('labelLimits', true, @islogical);
             p.addParameter('labelLow', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelHigh', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelCenter', '', @(x) ischar(x) || isscalar(x));
@@ -3836,6 +3835,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             cmap = p.Results.cmap;
             if isempty(cmap)
                 cmap = colormap(ax.axh);
+            end
+            
+            climits = p.Results.limits;
+            if isempty(climits)
+                climits = caxis(ax.axh);
             end
             
             if isa(cmap, 'function_handle')
@@ -3906,9 +3910,40 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~isnan(height)
                 ax.addAnchor(AnchorInfo(himg, PositionType.Height, [], height));
             end
+
+            if isempty(p.Results.labelHigh)
+                if p.Results.labelLimits
+                    if ~isempty(p.Results.units)
+                        labelHigh = sprintf('%g %s', climits(2), p.Results.units);
+                    else
+                        labelHigh = climits(2);
+                    end
+                else
+                    labelHigh = '';
+                end
+            else
+                labelHigh = p.Results.labelHigh;
+            end
+            if isempty(p.Results.labelLow)
+                if p.Results.labelLimits
+                    if ~isempty(p.Results.units)
+                        labelLow = sprintf('%g %s', climits(1), p.Results.units);
+                    else
+                        labelLow = climits(1);
+                    end
+                else
+                    labelLow = '';
+                end
+            else
+                labelLow = p.Results.labelLow;
+            end
             
-            if ~isempty(p.Results.labelLow)
-                hl = text(0, 0, toString(p.Results.labelLow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+            function x = toString(x) 
+                if ~ischar(x), x = num2str(x); end
+            end
+            
+            if ~isempty(labelLow)
+                hl = text(0, 0, toString(labelLow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
                 
                 if isVertical
                     ax.anchorRightBottomAlign(hl, himg, 'offsetX', 'tickLabelOffset');
@@ -3917,10 +3952,6 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             else
                 hl = [];
-            end
-            
-            function x = toString(x) 
-                if ~ischar(x), x = num2str(x); end
             end
             
             if ~isempty(p.Results.labelCenter)
@@ -3933,9 +3964,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             else
                 hc = [];
             end
-            
-            if ~isempty(p.Results.labelHigh)
-                hr = text(0, 0, toString(p.Results.labelHigh), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+
+            if ~isempty(labelHigh)
+                hr = text(0, 0, toString(labelHigh), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
                 if isVertical
                     ax.anchorRightTopAlign(hr, himg, 'offsetX', 'tickLabelOffset');
                 else
