@@ -1,5 +1,7 @@
 classdef PositionType < uint32
     enumeration
+        Unspecified(0)
+        
         Top (1)
         Bottom (2)
         VCenter (3)

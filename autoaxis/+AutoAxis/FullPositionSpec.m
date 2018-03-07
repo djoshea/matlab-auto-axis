@@ -60,9 +60,42 @@ classdef FullPositionSpec
             spec.offsetY = paddingY;
             spec.outsideY = false;
         end
+        
+        function spec = leftOutside(paddingX)
+            if nargin < 1
+                paddingX = 'axisPaddingLeft';
+            end
+            
+            spec = AutoAxis.FullPositionSpec;
+            spec.posX = AutoAxis.PositionType.Left;
+            spec.outsideX = true;
+            spec.offsetX = paddingX;
+            
+            spec = spec.unspecifyY();
+        end
+           
+        function spec = leftInside(paddingX)
+            if nargin < 1
+                paddingX = 0;
+            end
+            
+            spec = AutoAxis.FullPositionSpec;
+            spec.posX = AutoAxis.PositionType.Left;
+            spec.outsideX = false;
+            spec.offsetX = paddingX;
+            
+            spec = spec.unspecifyY();
+        end
     end
     
     methods
+        function spec = unspecifyY(spec)
+            assert(nargout == 1);
+            spec.posY = AutoAxis.PositionType.Unspecified;
+            spec.offsetY = 0;
+            spec.matchSizeY = 0;
+            spec.outsideY = false;
+        end
         function v = get.negOffsetX(spec)
             if isscalar(spec.offsetX)
                 v = -spec.offsetX;
