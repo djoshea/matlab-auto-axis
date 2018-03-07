@@ -2772,6 +2772,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('textOffsetX', 0, @isscalar);
             p.addParameter('horizontalAlignment', 'center', @ischar);
             p.addParameter('verticalAlignment', 'top', @ischar);
+            p.addParameter('addSpaceForScaleBar', true, @islogical);
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -2867,9 +2868,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addAnchor(ai);
             
             % anchor marker to axis
+            if p.Results.addSpaceForScaleBar
+                offsetBottom = @(ax, varargin) ax.axisPaddingBottom + ax.scaleBarThickness;
+            else
+                offsetBottom = 'axisPaddingBottom';
+            end
             ai = AutoAxis.AnchorInfo(hm, PositionType.Top, ...
-                ax.axh, PositionType.Bottom, @(a, varargin) a.axisPaddingBottom + a.scaleBarThickness, ...
-                sprintf('markerX ''%s'' to bottom of axis, padding plus scaleBarThickness', label));
+                ax.axh, PositionType.Bottom, offsetBottom, ...
+                sprintf('markerX ''%s'' to bottom of axis', label));
             ax.addAnchor(ai); 
             
             % anchor label to bottom of axis factoring in marker size,
@@ -2985,7 +2991,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if isempty(ax.xAutoTicks)
                     ax.updateAutoTicks();
                 end
-                if ax.keepAutoScaleBarsEqual && p.Results.useAutoScaleBarCollections
+                if (ax.keepAutoScaleBarsEqual || axh.DataAspectRatio(1) == axh.DataAspectRatio(2)) && p.Results.useAutoScaleBarCollections
                     xticks = ax.xAutoTicks;
                     yticks = ax.yAutoTicks;
                     len = min([xticks(end) - xticks(end-1), yticks(end) - yticks(end-1)]);
@@ -3119,7 +3125,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                 'xScaleBar flush with right edge of yScaleBar at right of axis');
                         else
                             ai = AnchorInfo(hrRef, PositionType.Right, ax.axh, ...
-                                PositionType.Right, 0, ...
+                                PositionType.Right, ...
                                 'xScaleBar flush with right edge of axis');
                         end
                         ax.addAnchor(ai);
