@@ -2883,8 +2883,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % anchored
             offY = p.Results.textOffsetY;
             pos = PositionType.verticalAlignmentToPositionType(p.Results.verticalAlignment);  
+            if p.Results.addSpaceForScaleBar
+                offsetBottom = @(ax, varargin) ax.axisPaddingBottom + ax.scaleBarThickness + ax.markerHeight + ax.markerLabelOffset + offY;
+            else
+                offsetBottom = @(ax, varargin) ax.axisPaddingBottom + ax.markerHeight + ax.markerLabelOffset + offY;
+            end
             ai = AutoAxis.AnchorInfo(ht, pos, ...
-                ax.axh, PositionType.Bottom, @(ax, varargin) ax.axisPaddingBottom + ax.markerHeight + ax.markerLabelOffset + offY, ...
+                ax.axh, PositionType.Bottom, offsetBottom, ...
                 sprintf('markerX label ''%s'' to bottom of axis', label));
             ax.addAnchor(ai);
             
@@ -3917,7 +3922,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     % bottom
                     mat = flipud(mat);
                 end
-                himg = image(mat, 'Parent', ax.axhDraw);
+                himg = image(mat, 'Parent', ax.axhDraw, 'XLimInclude', 'off', 'YLimInclude', 'off');
                 ax.axh.YDir = ydir;
 
                 if isnan(height) && ~p.Results.location.matchSizeY
@@ -5293,7 +5298,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             pos = LocationCurrent.getAggregateValue(clocVec, posType, ax.xReverse, ax.yReverse);
         end
         
-        function updatePositionData(ax, hVec, posType, value, translateDontScale, applyToPointsWithinLine)
+        function success = updatePositionData(ax, hVec, posType, value, translateDontScale, applyToPointsWithinLine)
             % update the position of handles in vector hVec using the LocationCurrent in 
             % ax.locMap. When hVec is a vector of handles, linearly shifts
             % each object to maintain the relative positions and to
@@ -5308,6 +5313,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~exist('applyToPointsWithinLine', 'var')
                 applyToPointsWithinLine = [];
             end
+            
+            % set success to tru if any position details are actually set 
             
             if ~isscalar(hVec)
                 % here we linearly scale / translate the bounding box
@@ -5336,8 +5343,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                        h = hVec(i);
                        t = ax.getCurrentPositionData(h, PositionType.Top);
                        he = ax.getCurrentPositionData(h, PositionType.Height);
-                       ax.updatePositionData(h, PositionType.Height, newHeightFn(he));
-                       ax.updatePositionData(h, PositionType.Top, newPosFn(t));
+                       wasResized = ax.updatePositionData(h, PositionType.Height, newHeightFn(he));
+                       if wasResized % false would be for objects that don't have height
+                           ax.updatePositionData(h, PositionType.Top, newPosFn(t));
+                       end
                     end
                 
                 elseif posType == PositionType.Width
@@ -5359,8 +5368,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                        h = hVec(i);
                        l = ax.getCurrentPositionData(h, PositionType.Left);
                        w = ax.getCurrentPositionData(h, PositionType.Width);
-                       ax.updatePositionData(h, PositionType.Width, newWidthFn(w));
-                       ax.updatePositionData(h, PositionType.Left, newPosFn(l));
+                       wasResized = ax.updatePositionData(h, PositionType.Width, newWidthFn(w));
+                       if wasResized % false would be for objects that don't have width (e.g. single point)
+                           ax.updatePositionData(h, PositionType.Left, newPosFn(l));
+                       end
                     end
                     
                 elseif translateDontScale
@@ -5438,6 +5449,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     error('Not sure how to handle posType %s', posType);
                 end
 
+                success = true;
             else
                 % scalar handle, move it directly via the LocationCurrent
                 % handle 
@@ -5446,7 +5458,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % use the corresponding LocationCurrent for this single
                 % object to move the graphics object
                 cloc = ax.getLocationCurrent(h);
-                cloc.setPosition(posType, value, ...
+                success = cloc.setPosition(posType, value, ...
                     ax.xDataToPoints, ax.yDataToPoints, ax.xReverse, ax.yReverse, translateDontScale, applyToPointsWithinLine);
             end
         end

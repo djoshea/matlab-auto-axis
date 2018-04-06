@@ -319,7 +319,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             
         end
 
-        function setPosition(loc, posType, value, xDataToPoints, yDataToPoints, xReverse, yReverse, translateDontScale, applyToPointsWithinLine)
+        function success = setPosition(loc, posType, value, xDataToPoints, yDataToPoints, xReverse, yReverse, translateDontScale, applyToPointsWithinLine)
             import AutoAxis.*;
             h = loc.h; %#ok<*PROP>
             type = get(h, 'Type');
@@ -327,6 +327,8 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             if ~exist('applyToPointsWithinLine', 'var')
                 applyToPointsWithinLine = [];
             end
+            
+            success = false;
             switch type
                 case 'line'
                     marker = get(h, 'Marker');
@@ -407,6 +409,9 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             case PositionType.Height
                                 lo = nanmin(ydata); hi = nanmax(ydata); mid = (lo+hi) / 2;
                                 if hi - lo < eps, return, end
+                                if numel(ydata) == 1
+                                    return
+                                end % can't change height of single point
                                 ydata = (ydata - mid) / (hi - lo + markerSizeY) * value + mid;
 
                             case PositionType.Left
@@ -414,7 +419,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                                     if xReverse
                                         xdata = xdata - nanmax(xdata) + value + markerSizeX/2;
                                     else
-                                        xdata = xdata - nanmin(xdata) + value - markerSizeX/2;
+                                        xdata = xdata - nanmin(xdata) + value + markerSizeX/2;
                                     end
                                 else
                                     % scale to keep current right
@@ -456,6 +461,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             case PositionType.Width
                                 lo = nanmin(xdata); hi = nanmax(xdata); mid = (lo+hi)/2;
                                 if hi - lo < eps, return, end
+                                if numel(xdata) == 1, return, end % can't change width of single point
                                 xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
 
                             case PositionType.MarkerDiameter
@@ -514,6 +520,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     if setMarkerSize && markerSize > 0
                         set(h, 'MarkerSize', markerSize);
                     end
+                    success = true;
                     
                     % update position based on new settings, including
                     % marker sizes
@@ -589,7 +596,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Height
                             lo = nanmin(ydata); hi = nanmax(ydata); mid = (lo+hi) / 2;
                             if hi - lo < eps, return, end
-                            ydata = (ydata - mid) / (hi - lo + markerSizeY) * value + mid;
+                            ydata = (ydata - mid) / (hi - lo) * value + mid;
 
                         case PositionType.Left
                             if translateDontScale
@@ -638,11 +645,12 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Width
                             lo = nanmin(xdata); hi = nanmax(xdata); mid = (lo+hi)/2;
                             if hi - lo < eps, return, end
-                            xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
+                            xdata = (xdata - mid) / (hi - lo) * value + mid;
                     end
 
                     data = [xdata, ydata];
                     set(h, 'Vertices', data); %#ok<*PROPLC>
+                    success = true;
                     
                     % update position based on new settings, including
                     % marker sizes
@@ -709,6 +717,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     end
 
                     set(h, 'Position', p);
+                    success = true;
                     
                     % update internal position
                     %ext = get(h, 'Extent'); % [left,bottom,width,height]
@@ -838,6 +847,8 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         p(4) = -p(4);
                     end
                     set(h, 'Position', p);
+                    success = true;
+                    
                     h.Clipping = 'off';
                     if yReverse
                         loc.top = p(2);
@@ -990,6 +1001,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     ydata(2) = ydata(2) - padY;
 
                     set(h, 'XData', xdata, 'YData', ydata, 'Clipping', 'off');
+                    success = true;
                     
                 otherwise
                     error('Unknown type %s', loc.type);
