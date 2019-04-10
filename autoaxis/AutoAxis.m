@@ -1415,6 +1415,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
         end
+        
+        function vec = setenvVec(name, vec)
+           str = vec2str(vec);
+           setenv(name, str);
+        end
     end
 
     methods % Pre-configured annotations and widgets to the axis
