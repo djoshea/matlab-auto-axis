@@ -100,6 +100,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         scaleBarHideLabelX = false;
         scaleBarHideLabelY = false;
         
+        scaleBarScaleFactorX = 1;
+        scaleBarScaleFactorY = 1;
+
         keepAutoScaleBarsEqual = false;
         scaleBarColor
         scaleBarFontColor
@@ -1369,18 +1372,21 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addOptional('axh', gca, @ishandle);
             p.addOptional('xUnits', '', @ischar);
             p.addOptional('yUnits', '', @ischar);
+            p.addParameter('xLength', [], @isscalar);
+            p.addParameter('yLength', [], @isscalar);
+            p.addParameter('xScaleFactor', 1, @isscalar);
+            p.addParameter('yScaleFactor', 1, @isscalar);
             p.addParameter('axes', 'xy', @ischar);
             p.parse(varargin{:});
 
             ax = AutoAxis(p.Results.axh);
             %axis(p.Results.axh, 'off');
-            ax.xUnits = p.Results.xUnits;
-            ax.yUnits = p.Results.yUnits;
+
             if ismember('x', p.Results.axes)
-                ax.addAutoScaleBarX();
+                ax.addAutoScaleBarX('units', p.Results.xUnits, 'scaleFactor', p.Results.xScaleFactor, 'length', p.Results.xLength);
             end
             if ismember('y', p.Results.axes)
-                ax.addAutoScaleBarY();
+                ax.addAutoScaleBarY('units', p.Results.yUnits, 'scaleFactor', p.Results.yScaleFactor, 'length', p.Results.yLength);
             end
             ax.addTitle();
             
@@ -2027,13 +2033,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % this will be called with no arguments on each update, so the
             % params here should maintain the current settings
             p.addParameter('units', ax.xUnits, @ischar);
-            p.addParameter('length', ax.scaleBarLenX, @isscalar);
+            p.addParameter('length', ax.scaleBarLenX, @(x) isempty(x) || isscalar(x));
             p.addParameter('hideLabel', ax.scaleBarHideLabelX, @islogical);
+            p.addParameter('scaleFactor', ax.scaleBarScaleFactorX, @isscalar);
             p.parse(varargin{:});
             
             ax.xUnits = p.Results.units;
             ax.scaleBarLenX = p.Results.length;
             ax.scaleBarHideLabelX = p.Results.hideLabel;
+            ax.scaleBarScaleFactorX = p.Results.scaleFactor;
             
             % adds a scale bar to the x axis that will automatically update
             % its length to match the major tick interval along the x axis
@@ -2052,7 +2060,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             ax.autoScaleBarX.h = ax.addScaleBar('x', ...
                 'units', ax.xUnits, 'length', ax.scaleBarLenX, ...
-                'hideLabel', ax.scaleBarHideLabelX, ...
+                'hideLabel', ax.scaleBarHideLabelX, 'scaleFactor', ax.scaleBarScaleFactorX, ...
                 'useAutoScaleBarCollection', true, 'addAnchors', firstTime);
             
             % remove after the new ones are added by addTickBridge
@@ -2073,13 +2081,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % this will be called with no arguments on each update, so the
             % params here should maintain the current settings
             p.addParameter('units', ax.yUnits, @ischar);
-            p.addParameter('length', ax.scaleBarLenY, @isscalar);
+            p.addParameter('length', ax.scaleBarLenY, @(x) isempty(x) || isscalar(x));
             p.addParameter('hideLabel', ax.scaleBarHideLabelY, @islogical);
+            p.addParameter('scaleFactor', ax.scaleBarScaleFactorY, @isscalar);
+            
             p.parse(varargin{:});
             
             ax.yUnits = p.Results.units;
             ax.scaleBarLenY = p.Results.length;
             ax.scaleBarHideLabelY = p.Results.hideLabel;
+            ax.scaleBarScaleFactorY = p.Results.scaleFactor;
             
             % adds a scale bar to the x axis that will automatically update
             % its length to match the major tick interval along the x axis
@@ -2101,7 +2112,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             ax.autoScaleBarY.h = ax.addScaleBar('y', 'units', ax.yUnits, ...
                 'useAutoScaleBarCollections', true, 'addAnchors', firstTime, ...
-                'hideLabel', ax.scaleBarHideLabelY, ...
+                'hideLabel', ax.scaleBarHideLabelY, 'scaleFactor', ax.scaleBarScaleFactorY, ...
                 'length', ax.scaleBarLenY);
             
             % remove after the new ones are added by addTickBridge
@@ -2981,6 +2992,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addRequired('orientation', @ischar);
             p.addParameter('length', [], @(x) isscalar(x) || isempty(x));
             p.addParameter('units', '', @(x) isempty(x) || ischar(x));
+            p.addParameter('scaleFactor', 1, @isscalar); % 1 unit of axis x/y is scaleFactor units on scale bar
             p.addParameter('hideLabel', false, @islogical);
             p.addParameter('manualLabel', '', @(x) isempty(x) || ischar(x));
             p.addParameter('useAutoScaleBarCollections', false, @islogical);
@@ -2990,13 +3002,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('fontSize', ax.scaleBarFontSize, @(x) isscalar(x));
             p.addParameter('manualPositionAlongAxis', [], @(x) isempty(x) || isscalar(x));
             p.addParameter('alignWithOtherScaleBar', true, @islogical);
+            
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
             axh = ax.axh; %#ok<*PROP>
             useX = strcmp(p.Results.orientation, 'x');
             if ~isempty(p.Results.length)
-                len = p.Results.length;
+                len = p.Results.length ./ p.Results.scaleFactor;
             else
                 if isempty(ax.xAutoTicks)
                     ax.updateAutoTicks();
@@ -3019,6 +3032,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     end
                 end
             end
+            
             units = p.Results.units;
             if isempty(units)
                 if useX
@@ -3029,10 +3043,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             if ~p.Results.hideLabel
                 if ismember('manualLabel', p.UsingDefaults) % allow '' to be specified too
+                    scaled_len = len .* p.Results.scaleFactor;
                     if isempty(units)
-                        label = sprintf('%g', len);
+                        label = sprintf('%g', scaled_len);
                     else
-                        label = sprintf('%g %s', len, units);
+                        label = sprintf('%g %s', scaled_len, units);
                     end
                 else
                     label = p.Results.manualLabel;
@@ -3058,7 +3073,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     'Parent', ax.axhDraw);
                 AutoAxis.hideInLegend(hr);
                 if ~isempty(label)
-                    ht = text(xpos, yl(1), label, 'HorizontalAlignment', 'right', ...
+                    ht = text(double(xpos), double(yl(1)), label, 'HorizontalAlignment', 'right', ...
                         'VerticalAlignment', 'top', 'Parent', ax.axhDraw, 'BackgroundColor', 'none');
                 else
                     ht = [];
@@ -3074,7 +3089,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     'Parent', ax.axhDraw);
                 AutoAxis.hideInLegend(hr);
                 if ~isempty(label)
-                    ht = text(xl(2), ypos, label, 'HorizontalAlignment', 'right', ...
+                    ht = text(double(xl(2)), double(ypos), label, 'HorizontalAlignment', 'right', ...
                         'VerticalAlignment', 'bottom', 'Parent', ax.axhDraw, ...
                         'Rotation', -90, 'BackgroundColor', 'none');
                 else
