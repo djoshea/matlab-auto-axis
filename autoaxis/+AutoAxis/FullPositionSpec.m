@@ -61,6 +61,19 @@ classdef FullPositionSpec
             spec.outsideY = false;
         end
         
+        function spec = outsideRightBottom(paddingX)
+            if nargin < 1
+                paddingX = 'axisPaddingRight';
+            end
+
+            spec = AutoAxis.FullPositionSpec;
+            spec.posX = AutoAxis.PositionType.Right;
+            spec.outsideX = true;
+            spec.posY = AutoAxis.PositionType.Bottom;
+            spec.matchSizeY = false;
+            spec.offsetX = paddingX;
+        end
+        
         function spec = leftOutside(paddingX)
             if nargin < 1
                 paddingX = 'axisPaddingLeft';
