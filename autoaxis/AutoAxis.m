@@ -1828,6 +1828,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.parse(varargin{:});
             
             info = p.Results;
+            assert(info.start <= info.stop);
             if isempty(ax.xAutoBridgeInfo)
                 ax.xAutoBridgeInfo = info;
             else
@@ -1926,11 +1927,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         infoNext = ax.xAutoBridgeInfo(i+1);
                         start = infoThis.zero + infoThis.stop;
                         stop = infoNext.start + infoNext.zero;
-                        hrect = rectangle('Position', [start 0 stop-start 1], 'FaceColor', ax.figh.Color, 'EdgeColor', 'none', 'Parent', ax.axhDraw);
-                        ax.addAnchor(AnchorInfo(hrect, PositionType.Top, ax.axh, PositionType.Top, 0, 'gridMasking'));
-                        ax.addAnchor(AnchorInfo(hrect, PositionType.Bottom, ax.axh, PositionType.Bottom, 0, 'gridMaskingRect', 'translateDontScale', false));
-                        hlist(end+1) = hrect; %#ok<AGROW>
-                        ax.stackBottom(hrect);
+                        if stop > start % this can be false if the alignments have offsets that make them overlap, in which case we can't do anything
+                            hrect = rectangle('Position', [start 0 stop-start 1], 'FaceColor', ax.figh.Color, 'EdgeColor', 'none', 'Parent', ax.axhDraw);
+                            ax.addAnchor(AnchorInfo(hrect, PositionType.Top, ax.axh, PositionType.Top, 0, 'gridMasking'));
+                            ax.addAnchor(AnchorInfo(hrect, PositionType.Bottom, ax.axh, PositionType.Bottom, 0, 'gridMaskingRect', 'translateDontScale', false));
+                            hlist(end+1) = hrect; %#ok<AGROW>
+                            ax.stackBottom(hrect);
+                        end
                     end
                     
                     ax.xAutoBridge{i} = hlist;
