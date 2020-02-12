@@ -20,7 +20,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         axisPaddingRight
         axisPaddingTop
         
-        % gap between axis limits (Position) and OuterPosition of axes
+        % gap between axis limits (Position) and OuterPosition of axes [left bottom right top] 
         axisMargin % [left bottom right top] 
         
         axisMarginLeft
@@ -4143,6 +4143,24 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addAnchor(ai);
         end
         
+        function anchorAxisInsetTopRight(ax, h, varargin)
+            p = inputParser();
+            p.addParameter('offsetX', 0, @(x) true);
+            p.addParameter('offsetY', 0, @(x) true);
+            p.addParameter('width', 1, @(x) true);
+            p.addParameter('height', 1, @(x) true);
+            p.parse(varargin{:});
+            
+            ax.anchorToAxisTopRight(h, 'offsetX', p.Results.offsetX, 'offsetY', p.Results.offsetY);
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.Width, [], p.Results.width);
+            ax.addAnchor(ai);
+            ai = AnchorInfo(h, PositionType.Width, [], p.Results.height);
+            ax.addAnchor(ai);
+        end
+        
         function anchorToAxisBottomRight(ax, h, varargin)
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
@@ -4834,7 +4852,6 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             axlim = axis(axh);
             axwidth = diff(axlim(1:2));
             axheight = diff(axlim(3:4));
-%             axpos = get(axh,'Position');
             axpos = AutoAxis.plotboxpos(axh);
             
             ax.xDataToUnits = axpos(3)/axwidth;
