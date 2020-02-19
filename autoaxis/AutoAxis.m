@@ -1740,7 +1740,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             else
                 str = sprintf(varargin{:});
             end
-            ylabel(ax.axh, str);
+            %ylabel(ax.axh, str);
+            ax.addYLabel(str);
         end
         
         function addAutoAxisX(ax, varargin)
@@ -3889,6 +3890,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('labelLow', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelHigh', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelCenter', '', @(x) ischar(x) || isscalar(x));
+            p.addParameter('labelCenterRotation', 0, @isscalar);
             p.addParameter('labelCenterNextLine', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelCenterNextLineOffset', 0, @(x) true);
             p.addParameter('backgroundColor', 'none', @ischar);
@@ -4025,7 +4027,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             if ~isempty(p.Results.labelCenter)
-                hc = text(0, 0, toString(p.Results.labelCenter), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+                hc = text(0, 0, toString(p.Results.labelCenter), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelCenterRotation);
                 if isVertical
                     ax.anchorRightCenterAlign(hc, himg, 'offsetX', 'tickLabelOffset');
                 else

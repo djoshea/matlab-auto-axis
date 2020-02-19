@@ -297,7 +297,7 @@ classdef AutoAxisGrid < handle
                 new(2:end-1) = v(2);
                 new(end) = v(3);
             else
-                assert(numel(v) == g.cols + 1, 'Value must have 2, 3, or cols+1 elements');
+                assert(numel(v) == g.rows + 1, 'Value must have 2, 3, or cols+1 elements');
                 new = v;
             end
             g.spacing_y_I = new;
