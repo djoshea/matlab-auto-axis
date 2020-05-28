@@ -146,27 +146,32 @@ classdef FullPositionSpec
             end
         end
                     
-        function ai = buildAnchors(spec, h, ha)
+        function ai = buildAnchors(spec, h, ha, varargin)
+            p = inputParser();
+            p.addParameter('desc', '', @ischar);
+            p.parse(varargin{:});
+            desc = p.Results.desc;
+            
             % build all anchors which anchor object h to ha
             import AutoAxis.AnchorInfo;
             import AutoAxis.PositionType;
             
             if spec.matchSizeY
-                ai = AnchorInfo(h, PositionType.Top, ha, PositionType.Top, 0, '', 'translateDontScale', true);
-                ai(end+1) = AnchorInfo(h, PositionType.Bottom, ha, PositionType.Bottom, 0, '', 'translateDontScale', false);
+                ai = AnchorInfo(h, PositionType.Top, ha, PositionType.Top, 0, desc, 'translateDontScale', true);
+                ai(end+1) = AnchorInfo(h, PositionType.Bottom, ha, PositionType.Bottom, 0, desc, 'translateDontScale', false);
             elseif ~spec.outsideY
-                ai = AnchorInfo(h, spec.posY, ha, spec.posY, spec.negOffsetY);
+                ai = AnchorInfo(h, spec.posY, ha, spec.posY, spec.negOffsetY, desc);
             else
-                ai = AnchorInfo(h, spec.posY.flip(), ha, spec.posY, spec.offsetY);
+                ai = AnchorInfo(h, spec.posY.flip(), ha, spec.posY, spec.offsetY, desc);
             end
             
             if spec.matchSizeX
-                ai(end+1) = AnchorInfo(h, PositionType.Left, ha, PositionType.Left, 0, '', 'translateDontScale', true);
-                ai(end+1) = AnchorInfo(h, PositionType.Right, ha, PositionType.Right, 0, '', 'translateDontScale', false);
+                ai(end+1) = AnchorInfo(h, PositionType.Left, ha, PositionType.Left, 0, desc, 'translateDontScale', true);
+                ai(end+1) = AnchorInfo(h, PositionType.Right, ha, PositionType.Right, 0, desc, 'translateDontScale', false);
             elseif ~spec.outsideX
-                ai(end+1) = AnchorInfo(h, spec.posX, ha, spec.posX, spec.negOffsetX);
+                ai(end+1) = AnchorInfo(h, spec.posX, ha, spec.posX, spec.negOffsetX, desc);
             else
-                ai(end+1) = AnchorInfo(h, spec.posX.flip(), ha, spec.posX, spec.offsetX);
+                ai(end+1) = AnchorInfo(h, spec.posX.flip(), ha, spec.posX, spec.offsetX, desc);
             end  
         end
     end

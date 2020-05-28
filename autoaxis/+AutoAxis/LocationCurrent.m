@@ -31,7 +31,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
         end
         
         function v = get.height(loc)
-            v = loc.top - loc.bottom;
+            v = abs(loc.top - loc.bottom);
         end
         
         function v = get.hcenter(loc)
@@ -39,7 +39,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
         end
         
         function v = get.width(loc)
-            v = loc.right - loc.left;
+            v = abs(loc.right - loc.left);
         end
     end
         
@@ -253,6 +253,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                 case 'image'
                     xdata = get(loc.h, 'XData');
                     ydata = get(loc.h, 'YData');
+                    
                     cdata = get(loc.h, 'CData');
                     nX = size(cdata, 2);
                     if isscalar(xdata)
@@ -266,12 +267,13 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             padX = 0.5;
                         end
                     else
+                        xdata = xdata([1 end]);
                         if nX == 1
                             % each tile is 3 * diff(xdata)
                             padX = xdata(2) - xdata(1);
                         else
                             % xdata spans the centers of the edge tiles
-                            padX = (xdata(2) - xdata(1)) / (nX - 1) / 2; 
+                            padX = (xdata(end) - xdata(1)) / (nX - 1) / 2; 
                         end
                     end
                     
@@ -285,6 +287,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             padY = 0.5;
                         end
                     else
+                        ydata = ydata([1 end]);
                         if nY == 1
                             padY = ydata(2) - ydata(1);
                         else
@@ -868,139 +871,140 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     
                     
                 case 'image'
+                    % compute the current [xmin xmax] as xext, [ymin ymax] as yext, considering the current axes directions
                     if xReverse
-                        xdata = [loc.right loc.left];
+                        xext = [loc.right loc.left];
                     else
-                        xdata = [loc.left loc.right];
+                        xext = [loc.left loc.right];
                     end
                     if yReverse
-                        ydata = [loc.top loc.bottom];
+                        yext = [loc.top loc.bottom];
                     else
-                        ydata = [loc.bottom loc.top];
+                        yext = [loc.bottom loc.top];
                     end
                     
+                    % then apply the desired position setting to these extents
                     switch posType
                         case PositionType.Top
                             if translateDontScale
                                 if yReverse
-                                    % top is ydata(1)
-                                    ydata = ydata - (ydata(1) - value);
+                                    % top is yext(1)
+                                    yext = yext - (yext(1) - value);
                                 else
-                                    ydata = ydata - (ydata(2) - value);
+                                    yext = yext - (yext(2) - value);
                                 end
                             else
                                 if yReverse
-                                    % top is ydata(1)
-                                    ydata(1) = value;
+                                    % top is yext(1)
+                                    yext(1) = value;
                                 else
-                                    ydata(2) = value;
+                                    yext(2) = value;
                                 end
                             end
                         case PositionType.Bottom
                             if translateDontScale
                                 if yReverse
-                                    % bottom is ydata(2)
-                                    ydata = ydata - (ydata(2) - value);
+                                    % bottom is yext(2)
+                                    yext = yext - (yext(2) - value);
                                 else
-                                    ydata = ydata - (ydata(1) - value);
+                                    yext = yext - (yext(1) - value);
                                 end
                             else
                                 if yReverse
-                                    % bottom is ydata(2)
-                                    ydata(2) = value;
+                                    % bottom is yext(2)
+                                    yext(2) = value;
                                 else
-                                    ydata(1) = value;
+                                    yext(1) = value;
                                 end
                             end
                         case PositionType.VCenter
-                            ydata = ydata - (mean(ydata) - value);
+                            yext = yext - (mean(yext) - value);
                             
                         case PositionType.Height
                             % maintain vertical center
-                            ydata = mean(ydata) + [-value/2 value/2];
+                            yext = mean(yext) + [-value/2 value/2];
                             
                         case PositionType.Right
                             if translateDontScale
                                 if xReverse
-                                    % right is xdata(1)
-                                    xdata = xdata - (xdata(1) - value);
+                                    % right is xext(1)
+                                    xext = xext - (xext(1) - value);
                                 else
-                                    xdata = xdata - (xdata(2) - value);
+                                    xext = xext - (xext(2) - value);
                                 end
                             else
                                 if xReverse
-                                    % right is xdata(1)
-                                    xdata(1) = value;
+                                    % right is xext(1)
+                                    xext(1) = value;
                                 else
-                                    xdata(2) = value;
+                                    xext(2) = value;
                                 end
                             end
                         case PositionType.Left
                             if translateDontScale
                                 if xReverse
-                                    % left is xdata(2)
-                                    xdata = xdata - (xdata(2) - value);
+                                    % left is xext(2)
+                                    xext = xext - (xext(2) - value);
                                 else
-                                    xdata = xdata - (xdata(1) - value);
+                                    xext = xext - (xext(1) - value);
                                 end
                             else
                                 if xReverse
-                                    % left is xdata(2)
-                                    xdata(2) = value;
+                                    % left is xext(2)
+                                    xext(2) = value;
                                 else
-                                    xdata(1) = value;
+                                    xext(1) = value;
                                 end
                             end
                         case PositionType.HCenter
-                            xdata = xdata - (mean(xdata) - value);
+                            xext = xext - (mean(xext) - value);
                             
                         case PositionType.Width
                             % maintain horizontal center
-                            xdata = mean(xdata) + [-value/2 value/2];
+                            xext = mean(xext) + [-value/2 value/2];
                             
                     end
                     
+                    % assign the updated extents as the updated positions
                     if yReverse
-                        loc.top = ydata(1);
-                        loc.bottom = ydata(2);
+                        loc.top = yext(1);
+                        loc.bottom = yext(2);
                     else
-                        loc.top = ydata(2);
-                        loc.bottom = ydata(1);
+                        loc.top = yext(2);
+                        loc.bottom = yext(1);
                     end
                     if xReverse
-                        loc.right = xdata(1);
-                        loc.left = ydata(2);
+                        loc.right = xext(1);
+                        loc.left = yext(2);
                     else
-                        loc.right = xdata(2);
-                        loc.left = xdata(1);
+                        loc.right = xext(2);
+                        loc.left = xext(1);
                     end
                     
+                    % now we query the image CData, which determines how the pixel xdata and ydata are mapped to pixel extents
                     cdata = get(h, 'CData');
                     nX = size(cdata, 2);
                     nY = size(cdata, 1);
                     
-                    % compute new padding and subtract back off
+                    % compute the padding required from the extents to the min max xdata/ydata values
                     if nX == 1
-                        % each tile is 3 * diff(xdata)
-                        padX = (xdata(2) - xdata(1)) / 3;
+                        % each tile is 3 * xdata_delta
+                        padX = (xext(2) - xext(1)) / 3;
                     else
-                        % xdata spans the centers of the edge tiles
-                        padX = (xdata(2) - xdata(1)) / nX / 2; 
+                        % xext spans the centers of the edge tiles
+                        padX = (xext(2) - xext(1)) / nX / 2; 
                     end
                     
                     if nY == 1
-                        padY = (ydata(2) - ydata(1)) / 3;
+                        padY = (yext(2) - yext(1)) / 3;
                     else
-                        padY = (ydata(2) - ydata(1)) / nY / 2; 
+                        padY = (yext(2) - yext(1)) / nY / 2; 
                     end
                     
-                    % add back in the half pixel offset
-                    xdata(1) = xdata(1) + padX;
-                    xdata(2) = xdata(2) - padX;
-                    ydata(1) = ydata(1) + padY;
-                    ydata(2) = ydata(2) - padY;
-
-                    set(h, 'XData', xdata, 'YData', ydata, 'Clipping', 'off');
+                    % now compute the desired XData and YData to achieve xext and yext, factoring in the padding
+                    xdata = linspace(xext(1) + padX, xext(2) - padX, max(nX, 2));
+                    ydata = linspace(yext(1) + padY, yext(2) - padY, max(nY, 2));
+                    set(h, 'XData', xdata, 'YData', ydata, 'Clipping', 'off', 'XLimInclude', 'off', 'YLimInclude', 'off');
                     success = true;
                     
                 otherwise
