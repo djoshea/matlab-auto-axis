@@ -10,7 +10,8 @@ classdef AutoAxisDefaults
             setenv('AutoAxis_ScaleBarThickness', '0.08'); % scale bars should be thinner than intervals since they sit on top
             setenv('AutoAxis_TickLabelOffset', '0.1');
             setenv('AutoAxis_MarkerLabelOffset', '0.1'); % cm
-
+            setenv('AutoAxis_SmallFontSizeDelta', 1); % drop font size by 1 pt for ticks and scale bar labels
+            
             setenv('AutoAxis_DefaultPadding', '');
             setenv('AutoAxis_DefaultMargins', ''); 
         end

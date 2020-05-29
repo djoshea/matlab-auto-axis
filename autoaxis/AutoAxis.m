@@ -711,7 +711,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % cleared
             ax = AutoAxis.recoverForAxis(axh);
             if ~isempty(ax)
-                disp('deleting auto axis');
+%                 disp('deleting auto axis');
                 ax.uninstall();
             end
         end
@@ -804,6 +804,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             tc = get(ax.axh, 'DefaultTextColor');
             lc = get(ax.axh, 'DefaultLineColor');
             
+            szDiffTick = AutoAxis.getenvNum('AutoAxis_SmallFontSizeDelta', 1);
             ax.tickLength = AutoAxis.getenvNum('AutoAxis_TickLength', 0.05);
             ax.tickLineWidth = AutoAxis.getenvNum('AutoAxis_TickLineWidth', 0.5); % not in centimeters, this is stroke width
             ax.markerWidth = AutoAxis.getenvNum('AutoAxis_MarkerWidth', 2*2.54/72);
@@ -817,14 +818,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.backgroundColor = get(0, 'DefaultAxesColor');
             
             ax.tickColor = lc;
-            ax.tickFontSize = sz;
+            ax.tickFontSize = sz - szDiffTick;
             ax.tickFontColor = tc;
             ax.labelFontColor = tc;
             ax.labelFontSize = sz;
             ax.titleFontSize = sz;
             ax.titleFontColor = tc;
             ax.scaleBarColor = lc;
-            ax.scaleBarFontSize = sz;
+            ax.scaleBarFontSize = sz - szDiffTick;
             ax.scaleBarFontColor = tc;
             
             ax.axisMargin = [];
@@ -3438,7 +3439,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             useX = strcmp(p.Results.which, 'x');
             span = p.Results.span;
             label = p.Results.label;
-            fontSize = ax.tickFontSize;
+            fontSize = ax.labelFontSize;
             lineWidth = ax.tickLineWidth;
             color = p.Results.color;
             leaveInPlace = p.Results.leaveInPlace;
@@ -3957,7 +3958,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('breakExtentFraction', 2, @isscalar); % scale break width orthogonal to colorbar, in fractions of colormap width
             p.addParameter('breakLineAngle', 15, @isscalar); % angle in degrees away from perpendicular of the lines that make hte break
             
-            p.addParameter('fontSize', ax.labelFontSize, @isscalar);
+            p.addParameter('fontSize', ax.scaleBarFontSize, @isscalar);
             p.addParameter('location', AutoAxis.FullPositionSpec.outsideRightTop(), @(x) isa(x, 'AutoAxis.FullPositionSpec')); 
             
             p.addParameter('orientation', 'vertical', @ischar);
