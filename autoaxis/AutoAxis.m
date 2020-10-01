@@ -3437,7 +3437,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addRequired('which', @ischar);
             p.addParameter('span', [], @ismatrix); % 2 X N matrix of [ start; stop ] limits
-            p.addParameter('label', {}, @(x) iscellstr(x) || isstring(x) || ischar(x));
+            p.addParameter('label', {}, @isstringlike);
             p.addParameter('color', [0 0 0], @(x) ischar(x) || iscell(x) || ismatrix(x));
             p.addParameter('leaveInPlace', false, @islogical);
             p.addParameter('manualPos', 0, @isscalar); % position to place along non-orientation axis, when leaveInPlace is true

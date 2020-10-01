@@ -136,6 +136,8 @@ classdef AutoAxisGrid < handle
                     mask = isnan(vals);
                     rem = 1 - nansum(vals);
                     vals(mask) = rem / nnz(mask);
+                else
+                    vals = vals / sum(vals, 'omitnan');
                 end
             end
             g.relHeight = distribute(p.Results.relHeight, g.rows);
