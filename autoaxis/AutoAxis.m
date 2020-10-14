@@ -800,20 +800,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             set(ax.axh, 'DefaultTextColor', get(groot, 'DefaultTextColor'));
             set(ax.axh, 'DefaultLineColor', get(groot, 'DefaultLineColor'));
             
+            scale = getenv('FIGURE_SIZE_SCALE');
+            if isempty(scale)
+                scale = 1;
+            else
+                scale = str2double(scale);
+            end
+            
             sz = get(ax.axh, 'FontSize');
             tc = get(ax.axh, 'DefaultTextColor');
             lc = get(ax.axh, 'DefaultLineColor');
             
-            szDiffTick = AutoAxis.getenvNum('AutoAxis_SmallFontSizeDelta', 1);
-            ax.tickLength = AutoAxis.getenvNum('AutoAxis_TickLength', 0.05);
-            ax.tickLineWidth = AutoAxis.getenvNum('AutoAxis_TickLineWidth', 0.5); % not in centimeters, this is stroke width
-            ax.markerWidth = AutoAxis.getenvNum('AutoAxis_MarkerWidth', 2*2.54/72);
-            ax.markerHeight = AutoAxis.getenvNum('AutoAxis_MarkerHeight', 0.12);
+            szDiffTick = AutoAxis.getenvNum('AutoAxis_SmallFontSizeDelta', 1 * scale);
+            ax.tickLength = AutoAxis.getenvNum('AutoAxis_TickLength', 0.05 * scale);
+            ax.tickLineWidth = AutoAxis.getenvNum('AutoAxis_TickLineWidth', 0.5 * scale); % not in centimeters, this is stroke width
+            ax.markerWidth = AutoAxis.getenvNum('AutoAxis_MarkerWidth', 2*2.54/72  * scale);
+            ax.markerHeight = AutoAxis.getenvNum('AutoAxis_MarkerHeight', 0.12 * scale);
             ax.markerCurvature = AutoAxis.getenvNum('AutoAxis_MarkerCurvature', 0); % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
-            ax.intervalThickness = AutoAxis.getenvNum('AutoAxis_IntervalThickness', 0.1);
-            ax.scaleBarThickness = AutoAxis.getenvNum('AutoAxis_ScaleBarThickness', 0.08); % scale bars should be thinner than intervals since they sit on top
-            ax.tickLabelOffset  = AutoAxis.getenvNum('AutoAxis_TickLabelOffset', 0.1);
-            ax.markerLabelOffset = AutoAxis.getenvNum('AutoAxis_MarkerLabelOffset', 0.1); % cm
+            ax.intervalThickness = AutoAxis.getenvNum('AutoAxis_IntervalThickness', 0.1 * scale);
+            ax.scaleBarThickness = AutoAxis.getenvNum('AutoAxis_ScaleBarThickness', 0.08 * scale); % scale bars should be thinner than intervals since they sit on top
+            ax.tickLabelOffset  = AutoAxis.getenvNum('AutoAxis_TickLabelOffset', 0.1 * scale);
+            ax.markerLabelOffset = AutoAxis.getenvNum('AutoAxis_MarkerLabelOffset', 0.1 * scale); % cm
             
             ax.backgroundColor = get(0, 'DefaultAxesColor');
             
@@ -837,7 +844,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('installCallbacks', true, @islogical);
             p.parse(varargin{:});
             
-            setappdata(axh, 'AutoAxisInstance', ax); 
+            setappdata(axh, 'AutoAxisInstance', ax);   
 %             ax.addTitle();
 %             ax.addXLabelAnchoredToAxis();
 %             ax.addYLabelAnchoredToAxis();
@@ -1426,6 +1433,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function vec = setenvVec(name, vec)
            str = vec2str(vec);
            setenv(name, str);
+        end
+        
+        function vec = setenvNum(name, value)
+            str = num2str(value);
+            setenv(name, str);
         end
     end
 
