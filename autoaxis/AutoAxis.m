@@ -3772,6 +3772,154 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addHandlesToCollection('generated', hvec);
         end
         
+        function [htitle, hsub] = addInsetTitle(ax, title, subtitle, varargin)
+            import AutoAxis.PositionType;
+            import AutoAxis.AnchorInfo;
+            
+            p = inputParser();
+            p.addParameter('posX', PositionType.Left, @(x) isa(x, 'AutoAxis.PositionType'));
+            p.addParameter('posY', PositionType.Top, @(x) isa(x, 'AutoAxis.PositionType'));
+            p.addParameter('color', [0 0 0], @(x) true);
+            p.addParameter('fontSize', ax.labelFontSize, @isscalar);
+            p.addParameter('fontWeight', 'bold', @ischar);
+            p.addParameter('fontSizeSubtitle', ax.labelFontSize, @isscalar);
+            p.addParameter('fontWeightSubtitle', 'normal', @ischar);
+            p.addParameter('spacing', 'tickLabelOffset', @(x) true);
+            p.addParameter('offsetX', '-tickLabelOffset', @(x) true);
+            p.addParameter('offsetY', '-tickLabelOffset', @(x) true);
+            p.addParameter('stacking', 'vertical', @ischar);
+            p.addParameter('fillColor', 'none', @(x) true);
+            p.addParameter('fillAlpha', 1, @isscalar);
+            p.parse(varargin{:});
+            posX = p.Results.posX;
+            posY = p.Results.posY;
+            
+            if strcmp(get(gca, 'YDir'), 'reverse')
+                rev = true;
+            else
+                rev = false;
+            end
+            c = p.Results.color;
+ 
+            if strcmp(p.Results.stacking, 'vertical')
+                x = 0;
+                y = (~rev * -1);
+            else
+                y = 0;
+                x = ~rev * 1;
+            end
+            hvec(1) = text(x, y, title, 'FontSize', p.Results.fontSize, 'fontWeight', p.Results.fontWeight, ...
+                'Color', c, 'HorizontalAlignment', posX.toHorizontalAlignment(), ...
+                'VerticalAlignment', posY.flip().toVerticalAlignment());
+            if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
+                set(hvec(1), 'BackgroundColor', 'none');
+            else
+                set(hvec(1), 'BackgroundColor', p.Results.fillColor);
+                if p.Results.fillAlpha < 1
+                    hvec(1).BackgroundColor(4) = p.Results.fillAlpha;
+                end  
+            end
+            htitle = hvec(1);
+            
+            if ~isempty(subtitle) && ~strcmp(subtitle, "")
+                if strcmp(p.Results.stacking, 'vertical')
+                    x = 0;
+                    y = (~rev * -2);
+                else
+                    y = 0;
+                    x = ~rev * 2;
+                end
+                hvec(2) = text(x, y, subtitle, 'FontSize', p.Results.fontSizeSubtitle, 'fontWeight', p.Results.fontWeightSubtitle, ...
+                    'Color', c, 'HorizontalAlignment', posX.toHorizontalAlignment(), ...
+                    'VerticalAlignment', posY.flip().toVerticalAlignment());
+                if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
+                    set(hvec(2), 'BackgroundColor', 'none');
+                else
+                    set(hvec(2), 'BackgroundColor', p.Results.fillColor);
+                    if p.Results.fillAlpha < 1
+                        hvec(2).BackgroundColor(4) = p.Results.fillAlpha;
+                    end  
+                end
+                hsub = hvec(2);
+                N = 2;
+            else
+                hsub = [];
+                N = 1;
+            end
+            
+            if strcmp(p.Results.stacking, 'vertical')
+                top = posY == PositionType.Top;
+                if top
+                    root = 1;
+                    anchorToOffset = -1;
+                    innerAnchorPosY = PositionType.Top;
+                else
+                    root = N;
+                    anchorToOffset = 1;
+                    innerAnchorPosY = PositionType.Bottom;
+                end  
+            
+                % anchor the root to the axis and the rest to the one
+                % above/below
+                for i = 1:N
+                    if i ~= root
+                        % anchor to text above/below
+                        ai = AnchorInfo(hvec(i), innerAnchorPosY, hvec(i+anchorToOffset), innerAnchorPosY.flip(), p.Results.spacing, ...
+                            sprintf('inset title %d %s to %d %s', i, char(posY), i+anchorToOffset, char(posY.flip())));
+                        ax.addAnchor(ai);
+                    end                    
+                end
+                
+                % anchor group to axis
+                ai = AnchorInfo(hvec, posY, ax.axh, posY, p.Results.offsetY, ...
+                    sprintf('colorLabel group %s to axis %s', char(posY), char(posY)));
+                ax.addAnchor(ai);
+                
+                % anchor horizontally to axis
+                ai = AnchorInfo(hvec, posX, ax.axh, posX, p.Results.offsetX, ...
+                    sprintf('colorLabels to axis %s', char(posX), char(posX)));
+                ax.addAnchor(ai);
+            else
+                left = posX == PositionType.Left;
+                if left
+                    root = 1;
+                    anchorToOffset = -1;
+                    innerAnchorPosX = PositionType.Left;
+                else
+                    root = N;
+                    anchorToOffset = 1;
+                    innerAnchorPosX = PositionType.Right;
+                end
+                
+                % anchor the root to the axis and the rest to the one
+                % left/right
+                for i = 1:N
+                    if i ~= root
+                        % anchor to text left/left
+                        ai = AnchorInfo(hvec(i), innerAnchorPosX, hvec(i+anchorToOffset), innerAnchorPosX.flip(), p.Results.spacing, ...
+                            sprintf('colorLabel %s %s to %s %s', labels{i}, char(posX), labels{i+anchorToOffset}, char(posX.flip())));
+                    end
+                    ax.addAnchor(ai);
+                end
+                
+                % anchor group to axis
+                ai = AnchorInfo(hvec, posX, ax.axh, posX, p.Results.offsetX, ...
+                    sprintf('colorLabel group %s to axis %s', char(posY), char(posX)));
+                ax.addAnchor(ai);
+                
+                % anchor vertically to axis
+                ai = AnchorInfo(hvec, posY, ax.axh, posY, p.Results.offsetY, ...
+                    sprintf('colorLabels to axis %s', char(posY), char(posY)));
+                ax.addAnchor(ai);       
+            end
+            
+            % put in top layer
+            ax.addHandlesToCollection('topLayer', hvec);
+            
+            % list as generated content
+            ax.addHandlesToCollection('generated', hvec);
+        end
+        
         function [hl, ht] = addLocationIndicator(ax, varargin)
             % for drawing small ticks near the edge of an axis, e.g. to indicate
             % the mean or median of a distribution
@@ -3864,7 +4012,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 
             
             % label
-            ht = text(xpos, ypos, p.Results.label, ...
+            ht = text(double(xpos), double(ypos), p.Results.label, ...
                 'FontSize', p.Results.fontSize, 'Color', p.Results.labelColor, ...
                 'HorizontalAlignment', ha, ...
                 'VerticalAlignment', va, ...
