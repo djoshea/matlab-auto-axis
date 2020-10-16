@@ -116,6 +116,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         anchorXLabelToAxis = false;
         anchorYLabelToAxis = false;
+        
+        autoAxisXExtendToLimits = false;
+        autoAxisYExtendToLimits = false;
     end
     
     % internal properties, mainly accessed through left/right/top/bottom
@@ -807,20 +810,22 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 scale = str2double(scale);
             end
             
+            % we assume that these are already scaled by FIGURE_SIZE_SCALE
             sz = get(ax.axh, 'FontSize');
             tc = get(ax.axh, 'DefaultTextColor');
             lc = get(ax.axh, 'DefaultLineColor');
             
-            szDiffTick = AutoAxis.getenvNum('AutoAxis_SmallFontSizeDelta', 1 * scale);
-            ax.tickLength = AutoAxis.getenvNum('AutoAxis_TickLength', 0.05 * scale);
-            ax.tickLineWidth = AutoAxis.getenvNum('AutoAxis_TickLineWidth', 0.5 * scale); % not in centimeters, this is stroke width
-            ax.markerWidth = AutoAxis.getenvNum('AutoAxis_MarkerWidth', 2*2.54/72  * scale);
-            ax.markerHeight = AutoAxis.getenvNum('AutoAxis_MarkerHeight', 0.12 * scale);
+            % these should match AutoAxisDefaults.reset() values
+            szDiffTick = AutoAxis.getenvNum('AutoAxis_SmallFontSizeDelta', 1) * scale;
+            ax.tickLength = AutoAxis.getenvNum('AutoAxis_TickLength', 0.05) * scale;
+            ax.tickLineWidth = AutoAxis.getenvNum('AutoAxis_TickLineWidth', 0.5) * scale; % not in centimeters, this is stroke width
+            ax.markerWidth = AutoAxis.getenvNum('AutoAxis_MarkerWidth', 2*2.54/72) * scale;
+            ax.markerHeight = AutoAxis.getenvNum('AutoAxis_MarkerHeight', 0.12) * scale;
             ax.markerCurvature = AutoAxis.getenvNum('AutoAxis_MarkerCurvature', 0); % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
-            ax.intervalThickness = AutoAxis.getenvNum('AutoAxis_IntervalThickness', 0.1 * scale);
-            ax.scaleBarThickness = AutoAxis.getenvNum('AutoAxis_ScaleBarThickness', 0.08 * scale); % scale bars should be thinner than intervals since they sit on top
-            ax.tickLabelOffset  = AutoAxis.getenvNum('AutoAxis_TickLabelOffset', 0.1 * scale);
-            ax.markerLabelOffset = AutoAxis.getenvNum('AutoAxis_MarkerLabelOffset', 0.1 * scale); % cm
+            ax.intervalThickness = AutoAxis.getenvNum('AutoAxis_IntervalThickness', 0.1)* scale;
+            ax.scaleBarThickness = AutoAxis.getenvNum('AutoAxis_ScaleBarThickness', 0.08)* scale; % scale bars should be thinner than intervals since they sit on top
+            ax.tickLabelOffset  = AutoAxis.getenvNum('AutoAxis_TickLabelOffset', 0.1)* scale;
+            ax.markerLabelOffset = AutoAxis.getenvNum('AutoAxis_MarkerLabelOffset', 0.1)* scale; % cm
             
             ax.backgroundColor = get(0, 'DefaultAxesColor');
             
@@ -1758,6 +1763,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
         
         function addAutoAxisX(ax, varargin)
+            p = inputParser();
+            p.addParameter('label', '', @isstringlike);
+            p.addParameter('extendToLimits', ax.autoAxisXExtendToLimits, @islogical);
+            p.parse(varargin{:});
+            ax.autoAxisXExtendToLimits = p.Results.extendToLimits;
+            
             import AutoAxis.PositionType;
             if ~isempty(ax.autoAxisX)
                 % delete the old axes
@@ -1770,14 +1781,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             hlist = ax.addTickBridge('x', ...
                 'useAutoAxisCollections', true, ...
                 'addAnchors', true, ...
-                'otherSide', strcmp(ax.axh.XAxisLocation, 'top'));
+                'otherSide', strcmp(ax.axh.XAxisLocation, 'top'), ...
+                'extendToLimits', ax.autoAxisXExtendToLimits);
             ax.autoAxisX.h = hlist;
             
             % remove after the new ones are added by addTickBridge
             % so that anchors aren't deleted
             ax.removeHandles(remove);
             
-            ax.addXLabel();
+            ax.addXLabel(p.Results.label);
         end
         
         function removeAutoAxisX(ax, varargin)
@@ -1791,6 +1803,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
         
         function addAutoAxisY(ax, varargin)
+            p = inputParser();
+            p.addParameter('label', '', @isstringlike);
+            p.addParameter('extendToLimits', ax.autoAxisYExtendToLimits, @islogical);
+            p.parse(varargin{:});
+            ax.autoAxisYExtendToLimits = p.Results.extendToLimits;
+            
             import AutoAxis.PositionType;
             if ~isempty(ax.autoAxisY)
                 % delete the old objects
@@ -1810,13 +1828,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             hlist = ax.addTickBridge('y', ...
                 'useAutoAxisCollections', true, ...
                 'addAnchors', true, ...
-                'otherSide', strcmp(ax.axh.YAxisLocation, 'right'));
+                'otherSide', strcmp(ax.axh.YAxisLocation, 'right'), ...
+                'extendToLimits', ax.autoAxisYExtendToLimits);
             ax.autoAxisY.h = hlist;
             
             % remove after the new ones are added by addTickBridge
             % so that anchors aren't deleted
             ax.removeHandles(remove);
-            ax.addYLabel();
+            ax.addYLabel(p.Results.label);
         end
         
         function removeAutoAxisY(ax, varargin)
@@ -2407,6 +2426,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('bridgeLabelFontWeight', 'normal', @isstringlike);
             p.addParameter('bridgeLabelOffset', 'tickLabelOffset', @(x) true);
             
+            p.addParameter('extendToLimits', false, @islogical); % false = align edge of bridge with a tick; true = draw stem all the way across
+            
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -2517,6 +2538,43 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             color = ax.tickColor;
             fontSize = ax.tickFontSize;
             
+            % determine what the edge behavior of the bridge will look like
+            extendToLimits = p.Results.extendToLimits;
+            if useX 
+                lims = ax.axh.XLim;
+            else
+                lims = ax.axh.YLim;
+            end
+            loTickAtLimit = AutoAxisUtilities.isequaltol(ticks(1), lims(1));
+            hiTickAtLimit = AutoAxisUtilities.isequaltol(ticks(end), lims(2));
+            
+            if extendToLimits
+                % we're extending the base of the bridge all the way to the axis limits
+                mergeLoTick = loTickAtLimit;
+                mergeHiTick = hiTickAtLimit;
+                
+            else
+                mergeLoTick = true;
+                mergeHiTick = true;
+            end
+            
+            if mergeLoTick
+                loInd = 2;
+                bridgeLo = ticks(1);
+            else
+                loInd = 1;
+                bridgeLo = lims(1);
+            end
+            if mergeHiTick
+                hiInd = numel(ticks)-1;
+                bridgeHi = ticks(end);
+            else
+                hiInd = numel(ticks);
+                bridgeHi = lims(2);
+            end
+            separateTicks = ticks(loInd:hiInd);
+            
+                
             % generate line, ignore length here, we'll anchor that later
             if useX
                 % get the ticks going in the right direction
@@ -2530,16 +2588,23 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 
                 % to get nice line caps on the edges, merge the edge ticks
                 % with the bridge
-                if numel(ticks) > 2
-                    xvals = [AutoAxisUtilities.makerow(ticks(2:end-1)); AutoAxisUtilities.makerow(ticks(2:end-1))];
-                    yvals = repmat([hi; lo], 1, numel(ticks)-2);
-                end
+                xvals = [AutoAxisUtilities.makerow(separateTicks); AutoAxisUtilities.makerow(separateTicks)];
+                yvals = repmat([hi; lo], 1, numel(separateTicks));
                 
-                xbridge = [ticks(1); ticks(1); ticks(end); ticks(end)];
+                xbridge = [bridgeLo; bridgeLo; bridgeHi; bridgeHi];
                 ybridge = [lo; hi; hi; lo];
                 
+                if ~mergeLoTick
+                    xbridge(1) = [];
+                    ybridge(1) = [];
+                end
+                if ~mergeHiTick
+                    xbridge(end) = [];
+                    ybridge(end) = [];
+                end 
+                
                 % y is anchored, x is fixed, see below for bridge label
-                bridgeLabel_x = (ticks(1)+ticks(end)) / 2;
+                bridgeLabel_x = (bridgeLo+bridgeHi) / 2;
                 bridgeLabel_y = lo;
                 
                 xtext = ticks;
@@ -2567,15 +2632,24 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 
                 if numel(ticks) > 2
-                    yvals = [AutoAxisUtilities.makerow(ticks(2:end-1)); AutoAxisUtilities.makerow(ticks(2:end-1))];
-                    xvals = repmat([hi; lo], 1, numel(ticks)-2);
+                    yvals = [AutoAxisUtilities.makerow(separateTicks); AutoAxisUtilities.makerow(separateTicks)];
+                    xvals = repmat([hi; lo], 1, numel(separateTicks));
                 end
                 
                 xbridge = [lo; hi; hi; lo];
-                ybridge = [ticks(1); ticks(1); ticks(end); ticks(end)];
+                ybridge = [bridgeLo; bridgeLo; bridgeHi; bridgeHi];
+                
+                if ~mergeLoTick
+                    xbridge(1) = [];
+                    ybridge(1) = [];
+                end
+                if ~mergeHiTick
+                    xbridge(end) = [];
+                    ybridge(end) = [];
+                end 
                 
                 % y is anchored, x is fixed, see below for bridge label
-                bridgeLabel_y = (ticks(1)+ticks(end)) / 2;
+                bridgeLabel_y = (bridgeLo+bridgeHi) / 2;
                 bridgeLabel_x = lo;
                 
                 xtext = repmat(lo, size(ticks));

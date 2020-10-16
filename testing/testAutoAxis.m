@@ -4,6 +4,8 @@ close all;
 
 figure(1), clf, set(1, 'Color', 'w');
 
+figSizeScale([8 8]);
+
 t = linspace(-6,6,300);
 xlim([-5 5]);
 ylim([-5 5]);
