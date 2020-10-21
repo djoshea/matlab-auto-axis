@@ -2189,10 +2189,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addAnchor(ai);
             
             % anchor title horizontally centered on axis
-            ai = AutoAxis.AnchorInfo(hlabel, PositionType.HCenter, ...
-                ax.axh, PositionType.HCenter, ...
-                0, 'Title centered on axis');
-            ax.addAnchor(ai);
+%             ai = AutoAxis.AnchorInfo(hlabel, PositionType.HCenter, ...
+%                 ax.axh, PositionType.HCenter, ...
+%                 0, 'Title centered on axis');
+%             ax.addAnchor(ai);
             
             ax.hTitle = hlabel;
         end
@@ -3854,6 +3854,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('posX', PositionType.Left, @(x) isa(x, 'AutoAxis.PositionType'));
             p.addParameter('posY', PositionType.Top, @(x) isa(x, 'AutoAxis.PositionType'));
             p.addParameter('color', [0 0 0], @(x) true);
+            p.addParameter('colorSubtitle', [], @(x) true);
             p.addParameter('fontSize', ax.labelFontSize, @isscalar);
             p.addParameter('fontWeight', 'bold', @ischar);
             p.addParameter('fontSizeSubtitle', ax.labelFontSize, @isscalar);
@@ -3874,6 +3875,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 rev = false;
             end
             c = p.Results.color;
+            csub = p.Results.colorSubtitle;
+            if isempty(csub)
+                csub = c;
+            end
  
             if strcmp(p.Results.stacking, 'vertical')
                 x = 0;
@@ -3882,18 +3887,23 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 y = 0;
                 x = ~rev * 1;
             end
-            hvec(1) = text(x, y, title, 'FontSize', p.Results.fontSize, 'fontWeight', p.Results.fontWeight, ...
-                'Color', c, 'HorizontalAlignment', posX.toHorizontalAlignment(), ...
-                'VerticalAlignment', posY.flip().toVerticalAlignment());
-            if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
-                set(hvec(1), 'BackgroundColor', 'none');
+            if ~isempty(title) && ~strcmp(title, "")
+                htitle = text(x, y, title, 'FontSize', p.Results.fontSize, 'fontWeight', p.Results.fontWeight, ...
+                    'Color', c, 'HorizontalAlignment', posX.toHorizontalAlignment(), ...
+                    'VerticalAlignment', posY.flip().toVerticalAlignment());
+                if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
+                    set(htitle, 'BackgroundColor', 'none');
+                else
+                    set(htitle, 'BackgroundColor', p.Results.fillColor);
+                    if p.Results.fillAlpha < 1
+                        htitle.BackgroundColor(4) = p.Results.fillAlpha;
+                    end  
+                end
+%                 hasTitle = true;
             else
-                set(hvec(1), 'BackgroundColor', p.Results.fillColor);
-                if p.Results.fillAlpha < 1
-                    hvec(1).BackgroundColor(4) = p.Results.fillAlpha;
-                end  
+                htitle = gobjects(0, 1);
+%                 hasTitle = false;
             end
-            htitle = hvec(1);
             
             if ~isempty(subtitle) && ~strcmp(subtitle, "")
                 if strcmp(p.Results.stacking, 'vertical')
@@ -3903,23 +3913,25 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     y = 0;
                     x = ~rev * 2;
                 end
-                hvec(2) = text(x, y, subtitle, 'FontSize', p.Results.fontSizeSubtitle, 'fontWeight', p.Results.fontWeightSubtitle, ...
-                    'Color', c, 'HorizontalAlignment', posX.toHorizontalAlignment(), ...
+                hsub = text(x, y, subtitle, 'FontSize', p.Results.fontSizeSubtitle, 'fontWeight', p.Results.fontWeightSubtitle, ...
+                    'Color', csub, 'HorizontalAlignment', posX.toHorizontalAlignment(), ...
                     'VerticalAlignment', posY.flip().toVerticalAlignment());
                 if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
-                    set(hvec(2), 'BackgroundColor', 'none');
+                    set(hsub, 'BackgroundColor', 'none');
                 else
-                    set(hvec(2), 'BackgroundColor', p.Results.fillColor);
+                    set(hsub, 'BackgroundColor', p.Results.fillColor);
                     if p.Results.fillAlpha < 1
-                        hvec(2).BackgroundColor(4) = p.Results.fillAlpha;
+                        hsub.BackgroundColor(4) = p.Results.fillAlpha;
                     end  
                 end
-                hsub = hvec(2);
-                N = 2;
+%                 hasSubTitle = true;
             else
-                hsub = [];
-                N = 1;
+                hsub = gobjects(0, 1);
+%                 hasSubTitle = false;
             end
+
+            hvec = cat(1, htitle, hsub);
+            N = numel(hvec);
             
             if strcmp(p.Results.stacking, 'vertical')
                 top = posY == PositionType.Top;
