@@ -88,6 +88,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         % plot title
         titleFontSize
         titleFontColor
+        titleFontWeight
+        titleAlignOuter logical = true;
+        
+        subtitleFontSize
+        subtitleFontColor
+        subtitleFontWeight
+        subtitleAlignOuter logical = true;
         
         % scale bar 
         scaleBarThickness % AutoAxis_ScaleBarThickness [0.1] % cm
@@ -2168,6 +2175,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             p = inputParser();
             p.addOptional('title', '', @ischar);
+            p.addOptional('HorizontalAlignment', ax.axh.TitleHorizontalAlignment, @ischar);
+            p.addOptional('alignOuter', ax.titleAlignOuter, @ischar);
             p.parse(varargin{:});
             
             if ~isempty(p.Results.title)
@@ -2176,6 +2185,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             hlabel = get(ax.axh, 'Title');
             set(hlabel, 'FontSize', ax.titleFontSize, 'Color', ax.titleFontColor, ...
+                'FontWeight', ax.titleFontWeight, ...
                 'Margin', 0.1, 'HorizontalAlign', 'center', ...
                 'VerticalAlign', 'bottom', 'BackgroundColor', 'none');
             if ax.debug
@@ -2412,6 +2422,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             p = inputParser();
             p.addRequired('orientation', @ischar);
+            p.addParameter('span', [], @(x) isempty(x) || isvector(x));
             p.addParameter('tick', [], @isvector);
             p.addParameter('tickLabel', {}, @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('tickAlignment', [], @(x) isempty(x) || iscellstr(x) || isstring(x));
@@ -2473,6 +2484,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     labels = {''; ''};
                 end
             end
+            
             
             if useX
                 exponent = ax.xExponent;
@@ -2544,6 +2556,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 lims = ax.axh.XLim;
             else
                 lims = ax.axh.YLim;
+            end
+            span = p.Results.span;
+            if ~isempty(span)
+                lims = span;
             end
             loTickAtLimit = AutoAxisUtilities.isequaltol(ticks(1), lims(1));
             hiTickAtLimit = AutoAxisUtilities.isequaltol(ticks(end), lims(2));
@@ -2683,17 +2699,21 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % draw tick labels
             hl = AutoAxis.allocateHandleVector(numel(ticks));
+            xtext = double(xtext);
+            ytext = double(ytext);
             for i = 1:numel(ticks)
                 hl(i) = text(xtext(i), ytext(i), labels{i}, ...
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
                     'Rotation', tickRotation, 'BackgroundColor', 'none', 'Margin', 0.01, ...
                     'Parent', ax.axhDraw, 'Interpreter', 'none');
             end
-            set(hl, 'Clipping', 'off', 'Margin', 0.1, 'FontSize', fontSize, ...
+            set(hl, 'Clipping', 'off', 'Margin', 0.01, 'FontSize', fontSize, ...
                     'Color', color);
                
             % draw bridge label
             bridgeLabel = string(p.Results.bridgeLabel);
+            bridgeLabel_x = double(bridgeLabel_x);
+            bridgeLabel_y = double(bridgeLabel_y);
             if strlength(bridgeLabel) > 0
                 hbl = text(bridgeLabel_x, bridgeLabel_y, bridgeLabel, 'HorizontalAlignment', 'Center', 'VerticalAlignment', 'Top', ...
                         'BackgroundColor', 'none', 'Margin', 0.01, 'FontWeight', p.Results.bridgeLabelFontWeight, ...
@@ -3524,6 +3544,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addRequired('which', @ischar);
             p.addParameter('span', [], @ismatrix); % 2 X N matrix of [ start; stop ] limits
             p.addParameter('label', {}, @isstringlike);
+            p.addParameter('labelOffset', ax.tickLabelOffset, @(x) true);
+            p.addParameter('fontSize', ax.labelFontSize, @isscalar);
             p.addParameter('color', [0 0 0], @(x) ischar(x) || iscell(x) || ismatrix(x));
             p.addParameter('leaveInPlace', false, @islogical);
             p.addParameter('manualPos', 0, @isscalar); % position to place along non-orientation axis, when leaveInPlace is true
@@ -3535,7 +3557,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             useX = strcmp(p.Results.which, 'x');
             span = p.Results.span;
             label = string(p.Results.label);
-            fontSize = ax.labelFontSize;
+            labelOffset = p.Results.labelOffset;
+            fontSize = p.Results.fontSize;
             lineWidth = ax.tickLineWidth;
             color = p.Results.color;
             leaveInPlace = p.Results.leaveInPlace;
@@ -3614,7 +3637,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 ht(i) = text(double(xtext(i)), double(ytext(i)), label{i}, ...
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
-                    'Parent', ax.axhDraw, 'Interpreter', 'none', 'BackgroundColor', 'none', 'Rotation', p.Results.rotation);
+                    'Parent', ax.axhDraw, 'Interpreter', 'none', 'BackgroundColor', 'none', ...
+                    'FontSize', fontSize, 'Rotation', p.Results.rotation);
                 if iscell(color)
                     set(ht(i), 'Color', color{wrap(i)});
                 else
@@ -3624,7 +3648,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ht = ht(keep);
             
             if ~isempty(ht)
-                set(ht, 'Clipping', 'off', 'Margin', 0.1, 'FontSize', fontSize);
+                set(ht, 'Clipping', 'off', 'Margin', 0.01);
                 
                 if ax.debug
                     set(ht, 'EdgeColor', 'r');
@@ -3649,12 +3673,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     % anchor labels to lines (always)
                     if useX
                         ai = AnchorInfo(ht, PositionType.Top, ...
-                            hl, PositionType.Bottom, 'tickLabelOffset', ...
+                            hl, PositionType.Bottom, labelOffset, ...
                             'xLabeledSpan below ticks');
                         ax.addAnchor(ai);
                     else
                         ai = AnchorInfo(ht, PositionType.Right, ...
-                            hl, PositionType.Left, 'tickLabelOffset', ...
+                            hl, PositionType.Left, labelOffset, ...
                             'yLabeledSpan left of ticks');
                         ax.addAnchor(ai);
                     end
@@ -4650,12 +4674,31 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
         end
         
+        function anchorToAxisIncludeMargin(ax, h, posX, posY, varargin)
+            % like align to axis but includes the margin box as well (the outer position)
+            import AutoAxis.PositionType;
+            if posX == PositionType.Left
+                if posY == PositionType.Top
+                    ax.anchorToAxisTopLeft(h, 'includeMargin', true, varargin{:});
+                else
+                    ax.anchorToAxisBottomLeft(h, 'includeMargin', true, varargin{:});
+                end
+            else 
+                if posY == PositionType.Top
+                    ax.anchorToAxisTopRight(h, 'includeMargin', true, varargin{:});
+                else
+                    ax.anchorToAxisBottomRight(h, 'includeMargin', true, varargin{:});
+                end
+            end
+        end
+        
         function anchorToAxisTopLeft(ax, h, varargin)
             p = inputParser();
             p.addParameter('outsideX', false, @islogical);
             p.addParameter('outsideY', false, @islogical);
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
+            p.addParameter('includeMargin', false, @islogical);
             p.addParameter('desc', '', @ischar);
             p.parse(varargin{:});
             
