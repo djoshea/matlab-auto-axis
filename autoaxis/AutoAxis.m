@@ -4974,6 +4974,28 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addAnchor(AnchorInfo(h, PositionType.Top, haround, PositionType.Top, padding));
             ax.addAnchor(AnchorInfo(h, PositionType.Bottom, haround, PositionType.Bottom, padding, p.Results.desc, 'translateDontScale', false));
         end
+        
+        function anchorWidth(ax, h, width, varargin)
+            p = inputParser();
+            p.addParameter('offset', 0, @(x) true);
+            p.addParameter('desc', '', @ischar);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ax.addAnchor(AnchorInfo(h, PositionType.Width, [], width, p.Results.offset, p.Results.desc));
+        end
+        
+        function anchorHeight(ax, h, height, varargin)
+            p = inputParser();
+            p.addParameter('offset', 0, @(x) true);
+            p.addParameter('desc', '', @ischar);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ax.addAnchor(AnchorInfo(h, PositionType.Height, [], height, p.Results.offset, p.Results.desc));
+        end
     end
     
     methods % Anchor specific 
