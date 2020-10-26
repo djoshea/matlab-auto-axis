@@ -12,7 +12,8 @@ classdef AutoAxisGrid < handle
         figure
         handles % rows x col cell
 
-        axDebug
+        axhOverlay % optional overlay axis, see add overlay axis
+        
         PositionSpecified % in centimeters
         PositionCurrent % in centimeters
         
@@ -219,6 +220,18 @@ classdef AutoAxisGrid < handle
             end
         end
         
+        function axhOverlay = getOverlayAxis(g)
+            if isempty(g.axhOverlay) || ~isvalid(g.axhOverlay)
+                g.axhOverlay = axes('Parent', g.figure, 'Position', [0 0 1 1], 'Color', 'none', ...
+                    'XLim', [0 1], 'YLim', [0 1], 'Tag', 'AutoAxisGrid Overlay', 'HitTest', 'off');
+            
+                uistack(g.axhOverlay, 'top');
+                hold(g.axhOverlay, 'on');
+                axis(g.axhOverlay, 'off');
+            end
+            axhOverlay = g.axhOverlay;
+        end
+        
         function updatePositions(g, position)
             % update my position
             if isempty(g.PositionSpecified)
@@ -243,6 +256,7 @@ classdef AutoAxisGrid < handle
                     if isa(h, 'matlab.graphics.axis.Axes') && ishandle(h) && isvalid(h)
                         u = h.Units;
                         h.Units = 'centimeters';
+                        h.PositionConstraint = 'innerposition';
                         h.Position = g.computePosition(r, c, isRoot);
                         h.Units = u;
                         
