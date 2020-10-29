@@ -88,12 +88,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         % plot title
         titleFontSize
         titleFontColor
-        titleFontWeight
+        titleFontWeight string = "bold";
         titleAlignOuter logical = true;
         
         subtitleFontSize
         subtitleFontColor
-        subtitleFontWeight
+        subtitleFontWeight string = "normal";
         subtitleAlignOuter logical = true;
         
         % scale bar 
@@ -3427,6 +3427,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('textOffsetX', 0, @isscalar);
             p.addParameter('horizontalAlignment', 'center', @ischar);
             p.addParameter('verticalAlignment', 'top', @ischar);
+            p.addParameter('fontSize', ax.tickFontSize, @isscalar);
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -3439,7 +3440,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             label = p.Results.label;
             errorInterval = p.Results.errorInterval;
             errorIntervalColor = p.Results.errorIntervalColor;
-            fontSize = ax.tickFontSize;
+            fontSize = p.Results.fontSize;
             
             hr = [];
             ht = [];
@@ -3470,7 +3471,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             ht = text(mean(interval), yl(1), label, 'HorizontalAlignment', p.Results.horizontalAlignment, ...
                 'VerticalAlignment', p.Results.verticalAlignment, 'Parent', ax.axhDraw, 'BackgroundColor', 'none');
-            set(ht, 'FontSize', fontSize, 'Margin', 0.1, 'Color', p.Results.labelColor);
+            set(ht, 'FontSize', fontSize, 'Margin', 0.01, 'Color', p.Results.labelColor);
             
             set(hri, 'FaceColor', color, 'EdgeColor', 'none', 'Clipping', 'off', ...
                 'XLimInclude', 'off', 'YLimInclude', 'off');
@@ -4482,7 +4483,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         
                         for iB = 1:nBreaks
                             if strlength(breakPrePost(iB, 1)) > 0
-                                htbreak(iB, 1) = text(xhi + breakw/2, yhi + 2*dy, toString(breakPrePost(iB, 1)), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+                                htbreak(iB, 1) = text(xhi + breakw/2, yhi + 2*dy, toString(breakPrePost(iB, 1)), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                                 dyLabel = (breakExtentFraction/2+0.8)*width * sind(gapTheta);
 %                                 dyLabel = 0;
                                 ax.anchorBelow(htbreak(iB, 1), hBreakRects(iB), 'offset', @(ax, info) ax.tickLabelOffset-dyLabel, 'desc', 'colorbar break label pre below break');
@@ -4490,7 +4491,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                             end
                             
                             if strlength(breakPrePost(iB, 2)) > 0 % skip if blank (or if was nan)
-                                htbreak(iB, 2) = text(xhi + breakw/2, ylo - 2*dy, toString(breakPrePost(iB, 2)), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+                                htbreak(iB, 2) = text(xhi + breakw/2, ylo - 2*dy, toString(breakPrePost(iB, 2)), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                                 ax.anchorAbove(htbreak(iB, 2), hBreakRects(iB), 'offset', @(ax, info) ax.tickLabelOffset/2, 'desc', 'colorbar break label post above break');
                                 mask(iB, 2) = true;
                             end
@@ -4553,7 +4554,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             if ~isempty(labelLow)
-                hl = text(0, 0, toString(labelLow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+                hl = text(0, 0, toString(labelLow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                 
                 if isVertical
                     ax.anchorRightBottomAlign(hl, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelLow');
@@ -4564,7 +4565,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % anchor labelBelow directly beneath label low
                 labelBelow = p.Results.labelBelow;
                 if ~isempty(labelBelow)
-                    hbl = text(0, 0, toString(labelBelow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+                    hbl = text(0, 0, toString(labelBelow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                     ax.anchorBelowLeftAlign(hbl, hl, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelBelow');
                 else
                     hbl = [];
@@ -4575,7 +4576,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end            
             
             if ~isempty(p.Results.labelCenter)
-                hc = text(0, 0, toString(p.Results.labelCenter), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelCenterRotation);
+                hc = text(0, 0, toString(p.Results.labelCenter), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelCenterRotation, 'Margin', 0.01);
                 if isVertical
                     ax.anchorRightCenterAlign(hc, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelCenter');
                 else
@@ -4586,7 +4587,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
 
             if ~isempty(labelHigh)
-                hr = text(0, 0, toString(labelHigh), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+                hr = text(0, 0, toString(labelHigh), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                 if isVertical
                     ax.anchorRightTopAlign(hr, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar label');
                 else
@@ -4596,7 +4597,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % anchor labelBelow directly beneath label low
                 labelAbove = p.Results.labelAbove;
                 if ~isempty(labelAbove)
-                    hab = text(0, 0, toString(labelAbove), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+                    hab = text(0, 0, toString(labelAbove), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                     if isVertical
                         ax.anchorAboveLeftAlign(hab, hr, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
                     else
@@ -4612,7 +4613,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             if ~isempty(p.Results.labelCenterNextLine)
                 hOtherLabels = [hl; hc; hr];
-                hcnl = text(0, 0, toString(p.Results.labelCenterNextLine), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw);
+                hcnl = text(0, 0, toString(p.Results.labelCenterNextLine), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                 clear ai;
                 if isVertical
                     ax.anchorRightCenterAlign(hcnl, hOtherLabels, 'offsetX', 'tickLabelOffset');

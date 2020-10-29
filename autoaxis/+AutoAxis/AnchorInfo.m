@@ -35,7 +35,7 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
     end
     
     methods
-        function ai = AnchorInfo(varargin)
+        function ai = AnchorInfo(varargin) % h, pos, ha, posa, margin, desc
             p = inputParser;
             validatePos = @(x) isempty(x) || isa(x, 'AutoAxis.PositionType') || isscalar(x) || ischar(x) || isa(x, 'function_handle');
             p.addOptional('h', [], @(x) isvector(x) || isempty(x)); % this may be a vector

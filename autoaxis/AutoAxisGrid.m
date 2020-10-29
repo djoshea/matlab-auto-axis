@@ -100,7 +100,6 @@ classdef AutoAxisGrid < handle
             p.addParameter('relWidth', [], @isvector);
             p.parse(varargin{:});
 
-
             g.Parent = p.Results.Parent;
             if isa(g.Parent, 'matlab.ui.Figure')
                 clf(g.Parent);
@@ -201,7 +200,7 @@ classdef AutoAxisGrid < handle
             aa = AutoAxis(ax);
         end
 
-        function gsub = gridAt(g, row, col, rows, cols)
+        function gsub = gridAt(g, row, col, rows, cols, varargin)
             if isempty(col)
                 [row, col] = g.indToRowCol(row);
             end
@@ -215,7 +214,7 @@ classdef AutoAxisGrid < handle
                     delete(current);
                 end
                 pos = g.computePosition(row, col);
-                gsub = AutoAxisGrid(rows, cols, 'Parent', g, 'Position', pos);
+                gsub = AutoAxisGrid(rows, cols, 'Parent', g, 'Position', pos, varargin{:});
                 g.handles{row, col} = gsub;
             end
         end
