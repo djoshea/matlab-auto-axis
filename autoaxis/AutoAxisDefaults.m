@@ -12,7 +12,7 @@ classdef AutoAxisDefaults
             AutoAxis.setenvNum('AutoAxis_TickLabelOffset', 0.1);
             AutoAxis.setenvNum('AutoAxis_MarkerLabelOffset', 0.1); % cm
             AutoAxis.setenvNum('AutoAxis_SmallFontSizeDelta', 1); % drop font size by 1 pt for ticks and scale bar labels
-            
+            AutoAxis.setenvNum('AutoAxis_ScaleBarLabelOffset', 0);
             setenv('AutoAxis_DefaultPadding', '');
             setenv('AutoAxis_DefaultMargins', ''); 
         end

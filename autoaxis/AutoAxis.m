@@ -109,6 +109,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         scaleBarScaleFactorX = 1;
         scaleBarScaleFactorY = 1;
+        
+        scaleBarLabelOffset 
 
         keepAutoScaleBarsEqual = false;
         scaleBarColor
@@ -832,6 +834,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.intervalThickness = AutoAxis.getenvNum('AutoAxis_IntervalThickness', 0.1)* scale;
             ax.scaleBarThickness = AutoAxis.getenvNum('AutoAxis_ScaleBarThickness', 0.08)* scale; % scale bars should be thinner than intervals since they sit on top
             ax.tickLabelOffset  = AutoAxis.getenvNum('AutoAxis_TickLabelOffset', 0.1)* scale;
+            ax.scaleBarLabelOffset  = AutoAxis.getenvNum('AutoAxis_ScaleBarLabelOffset', 0)* scale;
             ax.markerLabelOffset = AutoAxis.getenvNum('AutoAxis_MarkerLabelOffset', 0.1)* scale; % cm
             
             ax.backgroundColor = get(0, 'DefaultAxesColor');
@@ -3185,9 +3188,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('useAutoScaleBarCollections', false, @islogical);
             p.addParameter('addAnchors', true, @islogical);
             p.addParameter('color', ax.scaleBarColor, @(x) ischar(x) || isvector(x));
+            p.addParameter('textAlign', '', @isstringlike);
             p.addParameter('fontColor', ax.scaleBarFontColor, @(x) ischar(x) || isvector(x));
             p.addParameter('fontSize', ax.scaleBarFontSize, @(x) isscalar(x));
-            p.addParameter('manualPositionAlongAxis', [], @(x) isempty(x) || isscalar(x));
+            p.addParameter('manualPositionAlongAxis', [], @(x) isempty(x) || isscalar(x)); % position of right edge of scale bar
             p.addParameter('alignWithOtherScaleBar', true, @islogical);
             
             p.CaseSensitive = false;
@@ -3246,6 +3250,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             color = p.Results.color;
             fontColor = p.Results.fontColor;
             fontSize = p.Results.fontSize;
+            textAlign = string(p.Results.textAlign);
+            if textAlign == ""
+                if useX
+                    textAlign = "right";
+                else
+                    textAlign = "bottom";
+                end
+            end
+            
             % the two scale bars thicknesses must not be customized because
             % the placement of y depends on thickness of x and vice versa
             xl = get(axh, 'XLim');
@@ -3260,8 +3273,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     'Parent', ax.axhDraw);
                 AutoAxis.hideInLegend(hr);
                 if ~isempty(label)
-                    ht = text(double(xpos), double(yl(1)), label, 'HorizontalAlignment', 'right', ...
-                        'VerticalAlignment', 'top', 'Parent', ax.axhDraw, 'BackgroundColor', 'none');
+                    if textAlign == "left"
+                        horzAlign = 'right';
+                    elseif textAlign == "center"
+                        horzAlign = 'center';
+                    elseif textAlign == "right"
+                        horzAlign = 'left';
+                    else
+                        error('Unknown textAlign');
+                    end
+                    ht = text(double(xpos), double(yl(1)), label, 'HorizontalAlignment', horzAlign, ...
+                        'VerticalAlignment', 'top', 'Parent', ax.axhDraw, 'BackgroundColor', 'none', 'Margin', 0.01);
+                    
                 else
                     ht = [];
                 end
@@ -3276,9 +3299,19 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     'Parent', ax.axhDraw);
                 AutoAxis.hideInLegend(hr);
                 if ~isempty(label)
-                    ht = text(double(xl(2)), double(ypos), label, 'HorizontalAlignment', 'right', ...
+                    if textAlign == "bottom"
+                        horzAlign = 'left';
+                    elseif textAlign == "center" || textAlign == "middle"
+                        horzAlign = 'center';
+                    elseif textAlign == "top"
+                        horzAlign = 'right';
+                    else
+                        error('Unknown textAlign');
+                    end
+                        
+                    ht = text(double(xl(2)), double(ypos), label, 'HorizontalAlignment', horzAlign, ...
                         'VerticalAlignment', 'bottom', 'Parent', ax.axhDraw, ...
-                        'Rotation', -90, 'BackgroundColor', 'none');
+                        'Rotation', -90, 'BackgroundColor', 'none', 'Margin', 0.01);
                 else
                     ht = [];
                 end
@@ -3343,11 +3376,20 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         ax.addAnchor(ai);
                     end
                     if ~isempty(ht)
-                        ai = AnchorInfo(htRef, PositionType.Top, hrRef, PositionType.Bottom, 0.02, ...
+                        
+                        ai = AnchorInfo(htRef, PositionType.Top, hrRef, PositionType.Bottom, ax.scaleBarLabelOffset, ...
                             'xScaleBarLabel below xScaleBar');
                         ax.addAnchor(ai);
-                        ai = AnchorInfo(htRef, PositionType.Right, hrRef, PositionType.Right, 0, ...
-                            'xScaleBarLabel flush with left edge of xScaleBar');
+                        if textAlign == "left"
+                            ai = AnchorInfo(htRef, PositionType.Left, hrRef, PositionType.Left, 0, ...
+                                'xScaleBarLabel flush with left edge of xScaleBar');
+                        elseif textAlign == "center"
+                            ai = AnchorInfo(htRef, PositionType.Center, hrRef, PositionType.Center, 0, ...
+                                'xScaleBarLabel at center of xScaleBar');
+                        elseif textAlign == "right"
+                            ai = AnchorInfo(htRef, PositionType.Right, hrRef, PositionType.Right, 0, ...
+                                'xScaleBarLabel flush with right edge of xScaleBar');
+                        end
                         ax.addAnchor(ai);
                     end
                 else
@@ -3375,11 +3417,19 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         ax.addAnchor(ai);
                     end
                     if ~isempty(ht)
-                        ai = AnchorInfo(htRef, PositionType.Left, hrRef, PositionType.Right, 0, ...
+                        ai = AnchorInfo(htRef, PositionType.Left, hrRef, PositionType.Right, ax.scaleBarLabelOffset, ...
                             'yScaleBarLabel right of yScaleBar');
                         ax.addAnchor(ai);
-                        ai = AnchorInfo(htRef, PositionType.Bottom, hrRef, PositionType.Bottom, 0, ...
-                            'yScaleBarLabel bottom edge of xScaleBar');
+                        if textAlign == "top"
+                            ai = AnchorInfo(htRef, PositionType.Top, hrRef, PositionType.Top, 0, ...
+                                'yScaleBarLabel flush with top edge of yScaleBar');
+                        elseif textAlign == "center"
+                            ai = AnchorInfo(htRef, PositionType.VCenter, hrRef, PositionType.VCenter, 0, ...
+                                'yScaleBarLabel at center of yScaleBar');
+                        elseif textAlign == "bottom"
+                            ai = AnchorInfo(htRef, PositionType.Bottom, hrRef, PositionType.Bottom, 0, ...
+                                'yScaleBarLabel flush with bottom edge of xScaleBar');
+                        end
                         ax.addAnchor(ai);
                     end
                 end
