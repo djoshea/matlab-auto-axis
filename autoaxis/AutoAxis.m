@@ -2219,7 +2219,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             title(ax.axh, str);
         end
         
-        function addTicklessLabels(ax, varargin)
+        function ht = addTicklessLabels(ax, varargin)
             % add labels to x or y axis where ticks would appear but
             % without the tick marks, i.e. positioned labels
             import AutoAxis.AnchorInfo;
@@ -2233,6 +2233,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('tick', [], @isvector);
             p.addParameter('tickLabel', {}, @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('tickAlignment', [], @(x) isempty(x) || iscellstr(x) || isstring(x));
+            p.addParameter('offset', [], @(x) true); % default is axisPadding
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -2252,9 +2253,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if isempty(p.Results.location)
                 outside = true;
                 if useX
-                    offset = 'axisPaddingLeft';
+                    offset = {'axisPaddingLeft', 'tickLabelOffset'};
                 else
-                    offset = 'axisPaddingBottom';
+                    offset = {'axisPaddingBottom', 'tickLabelOffset'};
                 end
             elseif useX
                 outside = p.Results.location.outsideY;
@@ -2291,7 +2292,6 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 else
                     va = repmat({'bottom'}, numel(ticks), 1);
                 end
-                
             else
                 % y axis labels
                 xtext = 0* ticks;
@@ -2302,7 +2302,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     ha = repmat({'left'}, numel(ticks), 1);
                 end
                 va = tickAlignment;
-                offset = 'axisPaddingLeft';
+                offset = {'axisPaddingLeft', 'tickLabelOffset'};
             end
             
             ht = AutoAxis.allocateHandleVector(numel(ticks));
@@ -2316,6 +2316,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 
             if ax.debug
                 set(ht, 'EdgeColor', 'r');
+            end
+            
+            if ~isempty(p.Results.offset)
+                offset = p.Results.offset;
             end
             
             % build anchor for labels to axis
@@ -3621,10 +3625,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             nSpan = size(span, 2);
             assert(size(span, 1) == 2, 'span must be 2 x N matrix of limits');
-            if ischar(label)
-                label = {label};
+            label = string(label);
+            if ~isempty(label)
+                assert(numel(label) == nSpan, 'numel(label) must match size(span, 2)');
             end
-            assert(numel(label) == nSpan, 'numel(label) must match size(span, 2)');
             
             if ischar(color)
                 color = {color};
@@ -3682,7 +3686,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ht = AutoAxis.allocateHandleVector(nSpan);
             keep = AutoAxisUtilities.truevec(nSpan);
             for i = 1:nSpan
-                if isempty(label{i})
+                if isempty(label) || isempty(label{i})
                     keep(i) = false;
                     continue;
                 end
@@ -5636,30 +5640,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     info.ha = sort(ax.getHandlesInCollection(info.ha));
                 end
                 
-                % lookup margin as property value or function handle
-                if ischar(info.margin)
-                    if strcmp(info.margin(1), '-')
-                        info.margin = info.margin(2:end);
-                        inv = true;
-                    else
-                        inv = false;
-                    end
-                    try
-                        info.margin = ax.(info.margin);
-                        if inv
-                            info.margin = -info.margin;
-                        end
-                    catch
-                        warning('Could not evaluate property %s', info.margin);
-                    end
-                elseif isa(info.margin, 'function_handle')
-                    try
-                        info.margin = info.margin(ax, info);
-                    catch
-                        warning('Could not evaluate function handle for margin on on anchor %s', info.desc);
-                        info.margin = 0;
-                    end
-                end
+                info.margin = derefMargin(info.margin, info.desc);
                 
                 % look property or eval fn() for .pos or .posa
                 if ischar(info.pos)
@@ -5686,7 +5667,41 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
             
-            
+            function margin_val = derefMargin(margin_spec, desc)
+                % lookup margin as property value or function handle
+                if isnumeric(margin_spec)
+                    margin_val = margin_spec;
+                elseif ischar(margin_spec) || isstring(margin_spec)
+                    if startsWith(margin_spec, '-')
+                        margin_spec = extractAfter(margin_spec, 1);
+                        inv = true;
+                    else
+                        inv = false;
+                    end
+                    try
+                        margin_val = ax.(margin_spec);
+                        if inv
+                            margin_val = -margin_val;
+                        end
+                    catch
+                        warning('Could not evaluate property %s', margin_spec);
+                    end
+                elseif isa(margin_spec, 'function_handle')
+                    try
+                        margin_val = margin_spec(ax, info);
+                    catch
+                        warning('Could not evaluate function handle for margin on on anchor %s', desc);
+                        margin_val = 0;
+                    end
+                elseif iscell(margin_spec)
+                    margin_val = 0;
+                    for iE = 1:numel(margin_spec)
+                        margin_val = margin_val + derefMargin(margin_spec{iE}, desc);
+                    end
+                else
+                    error('Could not process AnchorInfo margin');
+                end
+            end
         end
 
         function updateLocationCurrentMap(ax)

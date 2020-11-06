@@ -97,7 +97,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             if ~isempty(pos), return; end
 
             % find max or min over all values
-            posVec = arrayfun(@(info) info.(field), infoVec);
+            posVec = arrayfun(@(info) double(info.(field)), infoVec);
             switch posType
                 case PositionType.Top
                     if yReverse
