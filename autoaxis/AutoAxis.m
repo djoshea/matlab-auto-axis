@@ -4347,6 +4347,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('height', NaN, @isscalar);
             p.addParameter('units', '', @ischar);
             p.addParameter('labelLimits', true, @islogical);
+            p.addParameter('limitHighAppendUnits', true, @islogical);
+            p.addParameter('limitLowAppendUnits', false, @islogical);
             p.addParameter('labelLow', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelBelow', '', @isstringlike); % used to describe the lower limit
             p.addParameter('labelHigh', '', @(x) ischar(x) || isscalar(x));
@@ -4627,7 +4629,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 
             if isempty(p.Results.labelHigh)
                 if p.Results.labelLimits
-                    if ~isempty(p.Results.units)
+                    if ~isempty(p.Results.units) && p.Results.limitHighAppendUnits
                         labelHigh = sprintf(labelFormatWithUnits, climits(2), p.Results.units);
                     else
                         labelHigh = sprintf(labelFormat, climits(2));
@@ -4641,7 +4643,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             if isempty(p.Results.labelLow)
                 if p.Results.labelLimits
-                    labelLow = sprintf(labelFormat, climits(1)); % no units
+                    if ~isempty(p.Results.units) && p.Results.limitLowAppendUnits
+                        labelLow = sprintf(labelFormatWithUnits, climits(1), p.Results.units);
+                    else
+                        labelLow = sprintf(labelFormat, climits(1)); % no units
+                    end
                 else
                     labelLow = '';
                 end
@@ -4821,16 +4827,29 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         function anchorToAxisTopRight(ax, h, varargin)
             p = inputParser();
+            p.addParameter('outsideX', false, @islogical);
+            p.addParameter('outsideY', false, @islogical);
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
+            p.addParameter('includeMargin', false, @islogical);
+            
             p.addParameter('desc', '', @ischar);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
             import AutoAxis.PositionType;
-            ai = AnchorInfo(h, PositionType.Top, ax.axh, PositionType.Top, p.Results.offsetY, p.Results.desc);
+            
+            if ~p.Results.outsideY
+                ai = AnchorInfo(h, PositionType.Top, ax.axh, PositionType.Top, p.Results.offsetY, p.Results.desc);
+            else
+                ai = AnchorInfo(h, PositionType.Bottom, ax.axh, PositionType.Top, p.Results.offsetY, p.Results.desc);
+            end
             ax.addAnchor(ai);
-            ai = AnchorInfo(h, PositionType.Right, ax.axh, PositionType.Right, p.Results.offsetX, p.Results.desc);
+            if ~p.Results.outsideX
+                ai = AnchorInfo(h, PositionType.Right, ax.axh, PositionType.Right, p.Results.offsetX, p.Results.desc);
+            else
+                ai = AnchorInfo(h, PositionType.Left, ax.axh, PositionType.Right, p.Results.offsetX, p.Results.desc);
+            end
             ax.addAnchor(ai);
         end
         
