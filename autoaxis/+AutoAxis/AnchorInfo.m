@@ -43,7 +43,7 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
             p.addOptional('ha', [], @(x) isvector(x) || isempty(x));
             p.addOptional('posa', [], validatePos);
             p.addOptional('margin', 0, @(x) ischar(x) || isscalar(x) || isa(x, 'function_handle') || iscell(x));
-            p.addOptional('desc', '', @ischar);
+            p.addOptional('desc', '', @isstringlike);
             p.addParameter('translateDontScale', true, @islogical);
             p.parse(varargin{:});
             ai.h = p.Results.h;

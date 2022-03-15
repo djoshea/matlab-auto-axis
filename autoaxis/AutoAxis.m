@@ -126,8 +126,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         anchorXLabelToAxis = false;
         anchorYLabelToAxis = false;
         
+        yLabelVerticalOffset = 0;
+        xLabelHorizontalOffset = 0;
+        
         autoAxisXExtendToLimits = false;
         autoAxisYExtendToLimits = false;
+        
+        autoAxisYManualPositionX = NaN;
+        autoAxisXManualPositionY = NaN;
     end
     
     % internal properties, mainly accessed through left/right/top/bottom
@@ -173,11 +179,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         usingOverlay = false;
         axhDraw % axis handle into which I am drawing (private axis, though may be the same as axh when usingOverlay is false)
         
-        anchorInfo % array of AutoAxisAnchorInfo objects that I enforce on update()
+        anchorInfo (:, 1) AutoAxis.AnchorInfo % array of AutoAxisAnchorInfo objects that I enforce on update()
         
         % contains a copy of the anchors in anchor info where all handle collection and property value references are looked up 
         % see .derefAnchorInfo
-        anchorInfoDeref
+        anchorInfoDeref (:, 1) AutoAxis.AnchorInfo
         
         refreshNeeded = true;
         
@@ -185,7 +191,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         mapLocationHandles
         mapLocationCurrent
         
-        collections = struct(); % struct which contains named collections of handles
+        collections (1, 1) struct % struct which contains named collections of handles
+        anchorCollections (1, 1) struct % struct which contains named collections of anchors
         
         nextTagId = 0; % integer indicating the next free index to use when generating tags for handles
         
@@ -201,6 +208,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         autoAxisY
         autoScaleBarX
         autoScaleBarY
+        
+        % monitor the state of the other scale bar whne the anchors were added to see if we should update 
+        autoScaleBarX_anchorsAlignedWithY (1, 1) logical = false;
+        autoScaleBarY_anchorsAlignedWithX (1, 1) logical = false;
+        
         hTitle
         hXLabel
         hYLabel
@@ -351,7 +363,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             szTop = sz * get(ax.axh, 'TitleFontSizeMultiplier');
             szLabel = sz * get(ax.axh, 'LabelFontSizeMultiplier') * 1.3;
             % left bottom right top
-            m = [4*szLabel 4*szLabel 2*szLabel 2*szTop];
+            m = [3*szLabel 3*szLabel 1.5*szLabel 1.5*szTop];
             
             % override with environment var if different
             m = AutoAxis.getenvVec('AutoAxis_DefaultMargins', m);
@@ -831,10 +843,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.markerWidth = AutoAxis.getenvNum('AutoAxis_MarkerWidth', 2*2.54/72) * scale;
             ax.markerHeight = AutoAxis.getenvNum('AutoAxis_MarkerHeight', 0.12) * scale;
             ax.markerCurvature = AutoAxis.getenvNum('AutoAxis_MarkerCurvature', 0); % 0 is rectangle, 1 is circle / oval, or can specify [x y] curvature
-            ax.intervalThickness = AutoAxis.getenvNum('AutoAxis_IntervalThickness', 0.1)* scale;
+            ax.intervalThickness = AutoAxis.getenvNum('AutoAxis_IntervalThickness', 0.12)* scale;
             ax.scaleBarThickness = AutoAxis.getenvNum('AutoAxis_ScaleBarThickness', 0.08)* scale; % scale bars should be thinner than intervals since they sit on top
             ax.tickLabelOffset  = AutoAxis.getenvNum('AutoAxis_TickLabelOffset', 0.1)* scale;
-            ax.scaleBarLabelOffset  = AutoAxis.getenvNum('AutoAxis_ScaleBarLabelOffset', 0)* scale;
+            ax.scaleBarLabelOffset  = AutoAxis.getenvNum('AutoAxis_ScaleBarLabelOffset', 0.02)* scale;
             ax.markerLabelOffset = AutoAxis.getenvNum('AutoAxis_MarkerLabelOffset', 0.1)* scale; % cm
             
             ax.backgroundColor = get(0, 'DefaultAxesColor');
@@ -1223,6 +1235,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             tags = cell(numel(hvec), 1);
             for iH = 1:numel(hvec)
+                if isa(hvec(iH), 'matlab.graphics.GraphicsPlaceholder')
+                    continue;
+                end
                 tags{iH} = ax.lookupHandleTag(hvec(iH));
                 if isempty(tags{iH})
                     % doesn't already exist in map
@@ -1235,6 +1250,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     ax.handleTagObjects(end+1) = hvec(iH);
                     ax.handleTagStrings{end+1} = tags{iH};
                 end
+                
                 
                 set(hvec(iH), 'Tag', tags{iH});
             end
@@ -1310,14 +1326,66 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             h = cat(1, hc{:});
         end
+        
+        function addAnchorToCollection(ax, name, hvec)
+            % anchor collections have no function, just used for logically grouping anchors for easy removal / editing
+            name = AutoAxisUtilities.makerow(name);
+            if ~isfield(ax.anchorCollections, name)
+                oldHvec = [];
+            else
+                oldHvec = ax.anchorCollections.(name);
+            end
 
-        function removeHandles(ax, hvec)
+            newHvec = AutoAxisUtilities.makecol(union(oldHvec, hvec, 'stable'));
+            
+            % install the new collection
+            ax.anchorCollections.(name) = newHvec;
+        end
+        
+        function deleteAnchorCollection(ax, names)
+            names = string(names);
+            for i = 1:numel(names)
+                name  = names(i);
+                if name ~= "" && isfield(ax.anchorCollections, name)
+                    ax.deleteAnchors(ax.anchorCollections.(name));
+                end
+            end
+        end
+        
+        function names = listAnchorCollections(ax)
+            % return a list of all handle collection properties
+            names = fieldnames(ax.anchorCollections);
+        end
+        
+        function h = getAnchorsInCollection(ax, names)
+            % names is char or cellstr of collection name(s)
+            names = string(names);
+            hc = cell(numel(names), 1);
+            for i = 1:numel(names)
+                name = AutoAxisUtilities.makerow(names{i});
+                if isfield(ax.anchorCollections, name)
+                    hc{i} = ax.anchorCollections.(name);
+                else
+                    hc{i} = AutoAxis.AnchorInfo.empty(0, 1);
+                end
+            end
+            h = cat(1, hc{:});
+        end
+
+        function removeHandles(ax, hvec, varargin)
             % remove handles from all handle collections and from each
             % anchor that refers to it. Prunes anchors that become empty
             % after pruning.
             if isempty(hvec)
                 return;
             end
+            
+            p = inputParser();
+            p.addParameter('whereReference', true, @islogical);
+            p.addParameter('whereAnchor', true, @islogical);
+            p.parse(varargin{:});
+            whereReference = p.Results.whereReference;
+            whereAnchor = p.Results.whereAnchor;
             
             % remove from tag list
             mask = AutoAxisUtilities.truevec(numel(ax.handleTagObjects));
@@ -1338,11 +1406,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             remove = false(numel(ax.anchorInfo), 1);
             for i = 1:numel(ax.anchorInfo)
                 ai = ax.anchorInfo(i);
-                if ai.isHandleH % char would be collection reference, ignore
+                if whereReference && ai.isHandleH % char would be collection reference, ignore
                     ai.h = AutoAxis.setdiffHandles(ai.h, hvec);
                     if isempty(ai.h), remove(i) = true; end
                 end
-                if ai.isHandleHa % char would be collection reference, ignore
+                if whereAnchor && ai.isHandleHa % char would be collection reference, ignore
                     ai.ha = AutoAxis.setdiffHandles(ai.ha, hvec);
                     if isempty(ai.ha), remove(i) = true; end
                 end
@@ -1393,13 +1461,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 
             p = inputParser();
             p.addOptional('axh', gca, @ishandle);
-            p.addOptional('xUnits', '', @ischar);
-            p.addOptional('yUnits', '', @ischar);
+            p.addOptional('xUnits', '', @isstringlike);
+            p.addOptional('yUnits', '', @isstringlike);
             p.addParameter('xLength', [], @isscalar);
             p.addParameter('yLength', [], @isscalar);
             p.addParameter('xScaleFactor', 1, @isscalar);
             p.addParameter('yScaleFactor', 1, @isscalar);
-            p.addParameter('axes', 'xy', @ischar);
+            p.addParameter('axes', 'xy', @isstringlike);
             p.parse(varargin{:});
 
             ax = AutoAxis(p.Results.axh);
@@ -1609,14 +1677,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % anchors and formats the existing x label
             
             p = inputParser();
-            p.addOptional('xlabel', '', @ischar);
+            p.addOptional('xlabel', '', @isstringlike);
             p.addParameter('anchorToAxis', ax.anchorXLabelToAxis, @islogical);
             p.parse(varargin{:});
             
             ax.anchorXLabelToAxis = p.Results.anchorToAxis;
             
             % remove any existing anchors with XLabel
-            ax.removeHandles(get(ax.axh, 'XLabel'));
+            ax.removeHandles(get(ax.axh, 'XLabel'), whereAnchor=false);
             
             if ~isempty(p.Results.xlabel)
                 xlabel(ax.axh, p.Results.xlabel);
@@ -1669,7 +1737,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % and in the middle of the x axis
             ai = AutoAxis.AnchorInfo(hlabel, PositionType.HCenter, ...
-                ax.axh, PositionType.HCenter, 0, 'xLabel centered on x axis');
+                ax.axh, PositionType.HCenter, 'xLabelHorizontalOffset', 'xLabel centered on x axis');
             ax.addAnchor(ai);
             ax.hXLabel = hlabel;
         end
@@ -1702,14 +1770,14 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             import AutoAxis.PositionType;
             
             p = inputParser();
-            p.addOptional('ylabel', '', @ischar);
+            p.addOptional('ylabel', '', @isstringlike);
             p.addParameter('anchorToAxis', ax.anchorYLabelToAxis, @islogical);
             p.parse(varargin{:});
             
             ax.anchorXLabelToAxis = p.Results.anchorToAxis;
             
             % remove any existing anchors with XLabel
-            ax.removeHandles(get(ax.axh, 'YLabel'));
+            ax.removeHandles(get(ax.axh, 'YLabel'), whereAnchor=false);
             
             if ~isempty(p.Results.ylabel)
                 ylabel(ax.axh, p.Results.ylabel);
@@ -1756,7 +1824,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % and in the middle of the y axis
             ai = AutoAxis.AnchorInfo(hlabel, PositionType.VCenter, ...
-                ax.axh, PositionType.VCenter, 0, 'yLabel centered on y axis');
+                ax.axh, PositionType.VCenter, 'yLabelVerticalOffset', 'yLabel centered on y axis');
             ax.addAnchor(ai);
             
             ax.hYLabel = hlabel;
@@ -1792,7 +1860,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 'useAutoAxisCollections', true, ...
                 'addAnchors', true, ...
                 'otherSide', strcmp(ax.axh.XAxisLocation, 'top'), ...
-                'extendToLimits', ax.autoAxisXExtendToLimits);
+                'extendToLimits', ax.autoAxisXExtendToLimits, ...
+                'manualPositionOrthogonalAxis', ax.autoAxisXManualPositionY);
             ax.autoAxisX.h = hlist;
             
             % remove after the new ones are added by addTickBridge
@@ -1839,7 +1908,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 'useAutoAxisCollections', true, ...
                 'addAnchors', true, ...
                 'otherSide', strcmp(ax.axh.YAxisLocation, 'right'), ...
-                'extendToLimits', ax.autoAxisYExtendToLimits);
+                'extendToLimits', ax.autoAxisYExtendToLimits, ...
+                'manualPositionOrthogonalAxis', ax.autoAxisYManualPositionX);
             ax.autoAxisY.h = hlist;
             
             % remove after the new ones are added by addTickBridge
@@ -1864,9 +1934,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('zero', 0, @isscalar); % location on axis of 0
             p.addParameter('start', 0, @isscalar); % location relative to zero of start
             p.addParameter('stop', 0, @isscalar); % location relative to zero of stop
-            p.addParameter('zeroLabel', '0', @ischar); % label associated with 0
+            p.addParameter('zeroLabel', '0', @isstringlike); % label associated with 0
             p.addParameter('autoTicks', true, @islogical); % use autoticks, false means just start stop and zero
             p.addParameter('hideGridAfter', true, @islogical); % automatically mask grid to the right of
+            p.addParameter('extendToLimits', 'auto', @(x) true); % automatically mask grid to the right of
             p.parse(varargin{:});
             
             info = p.Results;
@@ -1890,7 +1961,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('zero', 0, @isscalar); % location on axis of 0
             p.addParameter('start', 0, @isscalar); % location relative to zero of start
             p.addParameter('stop', 0, @isscalar); % location relative to zero of stop
-            p.addParameter('zeroLabel', '0', @ischar); % label associated with 0
+            p.addParameter('zeroLabel', '0', @isstringlike); % label associated with 0
             p.addParameter('autoTicks', true, @islogical); % use autoticks, false means just start stop and zero
             p.addParameter('hideGridAfter', true, @islogical); % automatically mask grid to the right of
             p.parse(varargin{:});
@@ -1970,7 +2041,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         start = infoThis.zero + infoThis.stop;
                         stop = infoNext.start + infoNext.zero;
                         if stop > start % this can be false if the alignments have offsets that make them overlap, in which case we can't do anything
-                            hrect = rectangle('Position', [start 0 stop-start 1], 'FaceColor', ax.figh.Color, 'EdgeColor', 'none', 'Parent', ax.axhDraw);
+                            hrect = rectangle('Position', [start 0 stop-start 1], 'FaceColor', ax.figh.Color, 'EdgeColor', 'none', 'Parent', ax.axhDraw, ...
+                                'YLimInclude', 'off', 'XlimInclude', 'off');
                             ax.addAnchor(AnchorInfo(hrect, PositionType.Top, ax.axh, PositionType.Top, 0, 'gridMasking'));
                             ax.addAnchor(AnchorInfo(hrect, PositionType.Bottom, ax.axh, PositionType.Bottom, 0, 'gridMaskingRect', 'translateDontScale', false));
                             hlist(end+1) = hrect; %#ok<AGROW>
@@ -2066,9 +2138,25 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 labels = labels(mask);
                 autoTicks(autoTicks < lim(1) | autoTicks > lim(2)) = [];
                 
-                args = {'tick', ticks, 'tickLabel', labels};
+                if isfield(info, 'extendToLimits')
+                    extendToLimits = info.extendToLimits;
+                else
+                    extendToLimits = 'auto';
+                end
+                if strcmp(extendToLimits, 'auto')
+                    if strcmp(which, 'x')
+                        extendToLimits = ax.autoAxisXExtendToLimits;
+                    else
+                        extendToLimits = ax.autoAxisYExtendToLimits;
+                    end
+                end
+                
+                args = {'extendToLimits', extendToLimits, 'tick', ticks, 'tickLabel', labels};
                 if info.autoTicks
                     args = cat(2, args, {'alignOuterLabelsInwards', false});
+                end
+                if extendToLimits
+                    args = cat(2, args, {'span', [info.start info.stop] + info.zero});
                 end
             end
         end
@@ -2077,7 +2165,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser;
             % this will be called with no arguments on each update, so the
             % params here should maintain the current settings
-            p.addParameter('units', ax.xUnits, @ischar);
+            p.addParameter('units', ax.xUnits, @isstringlike);
             p.addParameter('length', ax.scaleBarLenX, @(x) isempty(x) || isscalar(x));
             p.addParameter('hideLabel', ax.scaleBarHideLabelX, @islogical);
             p.addParameter('scaleFactor', ax.scaleBarScaleFactorX, @isscalar);
@@ -2103,10 +2191,20 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 remove = [];
             end
             
+            alignWithOther = ~isempty(ax.autoScaleBarY);
+            
+            % if the corresponding scale bar is added, we have to update the anchors
+            if ax.autoScaleBarX_anchorsAlignedWithY ~= alignWithOther
+                firstTime = true;
+            end
+            
             ax.autoScaleBarX.h = ax.addScaleBar('x', ...
                 'units', ax.xUnits, 'length', ax.scaleBarLenX, ...
                 'hideLabel', ax.scaleBarHideLabelX, 'scaleFactor', ax.scaleBarScaleFactorX, ...
-                'useAutoScaleBarCollection', true, 'addAnchors', firstTime);
+                'useAutoScaleBarCollection', true, 'addAnchors', firstTime, ...
+                'alignWithOtherScaleBar', alignWithOther);
+            
+            ax.autoScaleBarX_anchorsAlignedWithY = alignWithOther;
             
             % remove after the new ones are added by addTickBridge
             % so that the existing anchors aren't deleted
@@ -2125,7 +2223,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser;
             % this will be called with no arguments on each update, so the
             % params here should maintain the current settings
-            p.addParameter('units', ax.yUnits, @ischar);
+            p.addParameter('units', ax.yUnits, @isstringlike);
             p.addParameter('length', ax.scaleBarLenY, @(x) isempty(x) || isscalar(x));
             p.addParameter('hideLabel', ax.scaleBarHideLabelY, @islogical);
             p.addParameter('scaleFactor', ax.scaleBarScaleFactorY, @isscalar);
@@ -2155,10 +2253,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 remove = [];
             end
             
+            alignWithOther = ~isempty(ax.autoScaleBarX);
+            % if the corresponding scale bar is added, we have to update the anchors
+            if ax.autoScaleBarY_anchorsAlignedWithX ~= alignWithOther
+                firstTime = true;
+            end
+            
             ax.autoScaleBarY.h = ax.addScaleBar('y', 'units', ax.yUnits, ...
                 'useAutoScaleBarCollections', true, 'addAnchors', firstTime, ...
                 'hideLabel', ax.scaleBarHideLabelY, 'scaleFactor', ax.scaleBarScaleFactorY, ...
-                'length', ax.scaleBarLenY);
+                'length', ax.scaleBarLenY, 'alignWithOtherScaleBar', alignWithOther);
+            
+            ax.autoScaleBarY_anchorsAlignedWithX = alignWithOther;
             
             % remove after the new ones are added by addTickBridge
             % so that the existing anchors aren't deleted
@@ -2177,9 +2283,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             import AutoAxis.PositionType;
             
             p = inputParser();
-            p.addOptional('title', '', @ischar);
-            p.addOptional('HorizontalAlignment', ax.axh.TitleHorizontalAlignment, @ischar);
-            p.addOptional('alignOuter', ax.titleAlignOuter, @ischar);
+            p.addOptional('title', '', @isstringlike);
+            p.addParameter('HorizontalAlignment', ax.axh.TitleHorizontalAlignment, @isstringlike);
+            p.addParameter('alignOuter', ax.titleAlignOuter, @islogical);
             p.parse(varargin{:});
             
             if ~isempty(p.Results.title)
@@ -2226,7 +2332,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             import AutoAxis.PositionType;
             
             p = inputParser();
-            p.addRequired('orientation', @ischar);
+            p.addRequired('orientation', @isstringlike);
             
             p.addParameter('location', [], @(x) isempty(x) || isa(x, 'AutoAxis.FullPositionSpec')); 
             
@@ -2234,6 +2340,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('tickLabel', {}, @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('tickAlignment', [], @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('offset', [], @(x) true); % default is axisPadding
+            p.addParameter('fontSize', ax.tickFontSize, @isscalar);
+            p.addParameter('color', ax.tickColor, @(x) true);
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -2253,9 +2361,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if isempty(p.Results.location)
                 outside = true;
                 if useX
-                    offset = {'axisPaddingLeft', 'tickLabelOffset'};
-                else
                     offset = {'axisPaddingBottom', 'tickLabelOffset'};
+                else
+                    offset = {'axisPaddingLeft', 'tickLabelOffset'};
                 end
             elseif useX
                 outside = p.Results.location.outsideY;
@@ -2279,8 +2387,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 tickAlignment = p.Result.tickAlignment;
             end
             
-            color = ax.tickColor;
-            fontSize = ax.tickFontSize;
+            color = p.Results.color;
+            fontSize = p.Results.fontSize;
             
             % generate line, ignore length here, we'll anchor that later
             if useX
@@ -2428,23 +2536,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             import AutoAxis.PositionType;
             
             p = inputParser();
-            p.addRequired('orientation', @ischar);
+            p.addRequired('orientation', @isstringlike);
             p.addParameter('span', [], @(x) isempty(x) || isvector(x));
             p.addParameter('tick', [], @isvector);
             p.addParameter('tickLabel', {}, @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('tickAlignment', [], @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('tickLabelOffset', 'tickLabelOffset', @(x) true);
             p.addParameter('tickFontSize', ax.tickFontSize, @isscalar);
+            p.addParameter('tickMarks', ax.tickLength > 0, @islogical);
             p.addParameter('alignOuterLabelsInwards', false, @islogical);
             p.addParameter('tickRotation', NaN, @isscalar);
             p.addParameter('useAutoAxisCollections', false, @islogical);
             p.addParameter('useAutoBridgeCollections', false, @islogical);
             p.addParameter('addAnchors', true, @islogical);
             p.addParameter('otherSide', false, @islogical);
+            p.addParameter('manualPositionOrthogonalAxis', NaN, @isscalar);
             p.addParameter('bridgeLabel', '', @(x) ischar(x) || isstring(x));
+            p.addParameter('bridgeLabelColor', ax.tickColor, @(x) true);
+            p.addParameter('bridgeLabelAnchorTicks', true, @islogical);
+            p.addParameter('bridgeLabelFontSize', ax.labelFontSize, @isscalar);
             p.addParameter('bridgeLabelFontWeight', 'normal', @isstringlike);
             p.addParameter('bridgeLabelOffset', 'tickLabelOffset', @(x) true);
-            
             p.addParameter('extendToLimits', false, @islogical); % false = align edge of bridge with a tick; true = draw stem all the way across
             
             p.CaseSensitive = false;
@@ -2459,8 +2571,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~isempty(p.Results.tick)
                 ticks = p.Results.tick;
                 labels = p.Results.tickLabel;
+                
+                if isempty(ticks)
+                    if useX
+                        ticks = get(axh, 'XLim');
+                        labels = {''; ''};
+                    else
+                        ticks = get(axh, 'YLim');
+                        labels = {''; ''};
+                    end
+                end
             else
-                % briefly need to set font size back
+                % briefly need to set font size back to automatically determine the ticks
                 ax.updateAutoTicks();
                 if useX
                     if strcmp(ax.axh.XTickMode, 'manual')
@@ -2482,18 +2604,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     end
                 end
             end
-            
-            if isempty(ticks)
-                if useX
-                    ticks = get(axh, 'XLim');
-                    labels = {''; ''};
-                else
-                    ticks = get(axh, 'YLim');
-                    labels = {''; ''};
-                end
-            end
-            
-            
+              
             if useX
                 exponent = ax.xExponent;
                 if isempty(exponent)
@@ -2537,7 +2648,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
             
-            ticks = sort(ticks);
+            [ticks, sortIdx] = sort(ticks);
+            labels = labels(sortIdx);
             
 %             tickLen = ax.tickLength;
             lineWidth = ax.tickLineWidth;
@@ -2551,15 +2663,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             if tickRotation > 0 && tickRotation < 90
                 % anchor right side of label
-                [tickAlignment{:}] = deal('right');
+                if useX
+                    [tickAlignment{:}] = deal('right');
+                else
+                    [tickAlignment{:}] = deal('bottom');
+                end
             elseif tickRotation < 0 && tickRotation < -90
-                [tickAlignment{:}] = deal('left');
+                if useX
+                    [tickAlignment{:}] = deal('left');
+                else
+                    [tickAlignment{:}] = deal('bottom');
+                end
             end
             color = ax.tickColor;
             fontSize = p.Results.tickFontSize;
             
             % determine what the edge behavior of the bridge will look like
             extendToLimits = p.Results.extendToLimits;
+            if isscalar(extendToLimits)
+                % can independently control low, high separately
+                extendToLimits = repmat(extendToLimits, 2, 1);
+            end
             if useX 
                 lims = ax.axh.XLim;
             else
@@ -2569,16 +2693,19 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~isempty(span)
                 lims = span;
             end
-            loTickAtLimit = AutoAxisUtilities.isequaltol(ticks(1), lims(1));
-            hiTickAtLimit = AutoAxisUtilities.isequaltol(ticks(end), lims(2));
+            loTickAtLimit = ~isempty(ticks) && AutoAxisUtilities.isequaltol(ticks(1), lims(1));
+            hiTickAtLimit = ~isempty(ticks) && AutoAxisUtilities.isequaltol(ticks(end), lims(2));
             
-            if extendToLimits
+            if extendToLimits(1) || isempty(ticks)
                 % we're extending the base of the bridge all the way to the axis limits
                 mergeLoTick = loTickAtLimit;
-                mergeHiTick = hiTickAtLimit;
-                
             else
                 mergeLoTick = true;
+            end
+            
+            if extendToLimits(2) || isempty(ticks)
+                mergeHiTick = hiTickAtLimit;
+            else
                 mergeHiTick = true;
             end
             
@@ -2600,32 +2727,51 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
                 
             % generate line, ignore length here, we'll anchor that later
+            manPos = p.Results.manualPositionOrthogonalAxis;
+            if ~isnan(manPos)
+                useManPos = true;
+                hiPos = manPos;
+            else
+                useManPos = false;
+                hiPos = 0;
+            end
+            tickMarks = p.Results.tickMarks && ~isempty(ticks);
+            
+            xvals = [];
+            yvals = [];
             if useX
                 % get the ticks going in the right direction
                 if xor(ax.yReverse, otherSide)
-                    hi = 0;
-                    lo = 1;
+                    hi = hiPos;
+                    lo = hiPos + 1;
                 else
-                    hi = 1;
-                    lo = 0;
+                    hi = hiPos;
+                    lo = hiPos - 1;
                 end
                 
                 % to get nice line caps on the edges, merge the edge ticks
                 % with the bridge
-                xvals = [AutoAxisUtilities.makerow(separateTicks); AutoAxisUtilities.makerow(separateTicks)];
-                yvals = repmat([hi; lo], 1, numel(separateTicks));
+                if tickMarks
+                    if ~isempty(separateTicks)
+                        xvals = [AutoAxisUtilities.makerow(separateTicks); AutoAxisUtilities.makerow(separateTicks)];
+                        yvals = repmat([hi; lo], 1, numel(separateTicks));
+                    end
                 
-                xbridge = [bridgeLo; bridgeLo; bridgeHi; bridgeHi];
-                ybridge = [lo; hi; hi; lo];
-                
-                if ~mergeLoTick
-                    xbridge(1) = [];
-                    ybridge(1) = [];
+                    xbridge = [bridgeLo; bridgeLo; bridgeHi; bridgeHi];
+                    ybridge = [lo; hi; hi; lo];
+                    
+                    if ~mergeLoTick
+                        xbridge(1) = [];
+                        ybridge(1) = [];
+                    end
+                    if ~mergeHiTick
+                        xbridge(end) = [];
+                        ybridge(end) = [];
+                    end 
+                else
+                    xbridge = [bridgeLo; bridgeHi];
+                    ybridge = [hi; hi];
                 end
-                if ~mergeHiTick
-                    xbridge(end) = [];
-                    ybridge(end) = [];
-                end 
                 
                 % y is anchored, x is fixed, see below for bridge label
                 bridgeLabel_x = (bridgeLo+bridgeHi) / 2;
@@ -2648,30 +2794,34 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % y axis ticks
                 % get bridge pointed in the right direction
                 if xor(ax.xReverse, otherSide)
-                    lo = 1;
-                    hi = 0;
+                    lo = hiPos+1;
+                    hi = hiPos;
                 else
-                    lo = 0;
-                    hi = 1;
+                    lo = hiPos-1;
+                    hi = hiPos;
                 end
                 
-                if numel(ticks) > 2
-                    yvals = [AutoAxisUtilities.makerow(separateTicks); AutoAxisUtilities.makerow(separateTicks)];
-                    xvals = repmat([hi; lo], 1, numel(separateTicks));
-                end
-                
-                xbridge = [lo; hi; hi; lo];
-                ybridge = [bridgeLo; bridgeLo; bridgeHi; bridgeHi];
-                
-                if ~mergeLoTick
-                    xbridge(1) = [];
-                    ybridge(1) = [];
-                end
-                if ~mergeHiTick
-                    xbridge(end) = [];
-                    ybridge(end) = [];
-                end 
-                
+                if tickMarks
+                    if ~isempty(separateTicks)
+                        yvals = [AutoAxisUtilities.makerow(separateTicks); AutoAxisUtilities.makerow(separateTicks)];
+                        xvals = repmat([hi; lo], 1, numel(separateTicks));
+                    end
+
+                    xbridge = [lo; hi; hi; lo];
+                    ybridge = [bridgeLo; bridgeLo; bridgeHi; bridgeHi];
+                    
+                    if ~mergeLoTick
+                        xbridge(1) = [];
+                        ybridge(1) = [];
+                    end
+                    if ~mergeHiTick
+                        xbridge(end) = [];
+                        ybridge(end) = [];
+                    end 
+                else
+                    xbridge = [hi; hi];
+                    ybridge = [bridgeLo; bridgeHi];
+                end                
                 % y is anchored, x is fixed, see below for bridge label
                 bridgeLabel_y = (bridgeLo+bridgeHi) / 2;
                 bridgeLabel_x = lo;
@@ -2693,7 +2843,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             % draw tick bridge
-            if numel(ticks) > 2
+            if ~isempty(separateTicks) && tickMarks
                 ht = line(xvals, yvals, 'LineWidth', lineWidth, 'Color', color, 'Parent', ax.axhDraw);
                 set(ht, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
                 AutoAxis.hideInLegend(ht);
@@ -2724,7 +2874,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             bridgeLabel_y = double(bridgeLabel_y);
             if strlength(bridgeLabel) > 0
                 hbl = text(bridgeLabel_x, bridgeLabel_y, bridgeLabel, 'HorizontalAlignment', 'Center', 'VerticalAlignment', 'Top', ...
-                        'BackgroundColor', 'none', 'Margin', 0.01, 'FontWeight', p.Results.bridgeLabelFontWeight, ...
+                        'BackgroundColor', 'none', 'Margin', 0.01, 'FontSize', p.Results.bridgeLabelFontSize, ...
+                        'FontWeight', p.Results.bridgeLabelFontWeight, ...
+                        'Color', p.Results.bridgeLabelColor, ...
                         'Parent', ax.axhDraw, 'Interpreter', 'none');   
             else
                 hbl = [];
@@ -2807,9 +2959,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if useX
                     if ~otherSide
                         % bottom of axis
-                        ai = AnchorInfo(hbRef, PositionType.Top, ax.axh, ...
-                            PositionType.Bottom, offset, 'xTickBridge below axis');
-                        ax.addAnchor(ai);
+                        if ~useManPos
+                            ai = AnchorInfo(hbRef, PositionType.Top, ax.axh, ...
+                                PositionType.Bottom, offset, 'xTickBridge below axis');
+                            ax.addAnchor(ai);
+                        end
+                        
                         % anchor the height of the bridge which includes
                         % the outermost ticks
                         ai = AnchorInfo(hbRef, PositionType.Height, ...
@@ -2832,20 +2987,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                             'xTickLabels below ticks');
                         ax.addAnchor(ai);
                         
-                        % anchor bridge label to bridge
+                        % anchor bridge label to ticks / bridge
                         if ~isempty(hbl)
-                            ai = AnchorInfo(hblRef, PositionType.Top, ...
-                                hlRef, PositionType.Bottom, bridgeLabelOffset, ...
-                                'xBridgeLabel below tick labels');
+                            if p.Results.bridgeLabelAnchorTicks
+                                ai = AnchorInfo(hblRef, PositionType.Top, ...
+                                    hlRef, PositionType.Bottom, bridgeLabelOffset, ...
+                                    'xBridgeLabel below tick labels');
+                            else
+                                ai = AnchorInfo(hblRef, PositionType.Top, ...
+                                    hbRef, PositionType.Bottom, bridgeLabelOffset, ...
+                                    'xBridgeLabel below bridge');
+                            end
                             ax.addAnchor(ai);
                         end
                        
                     else
                         % top of axis
-                        
-                        ai = AnchorInfo(hbRef, PositionType.Bottom, ax.axh, ...
-                            PositionType.Top, offset, 'xTickBridge above axis');
-                        ax.addAnchor(ai);
+                        if ~useManPos
+                            ai = AnchorInfo(hbRef, PositionType.Bottom, ax.axh, ...
+                                PositionType.Top, offset, 'xTickBridge above axis');
+                            ax.addAnchor(ai);
+                        end
                         ai = AnchorInfo(hbRef, PositionType.Height, ...
                             [], 'tickLength', 0, 'xTickBridge height for outermost ticks');
                         ax.addAnchor(ai);
@@ -2866,10 +3028,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                             'xTickLabels above ticks');
                         ax.addAnchor(ai);
                         
+                        % anchor bridge label to ticks / bridge
                         if ~isempty(hbl)
-                            ai = AnchorInfo(hblRef, PositionType.Bottom, ...
-                                hlRef, PositionType.Above, bridgeLabelOffset, ...
-                                'xBridgeLabel above tick labels');
+                            if p.Results.bridgeLabelAnchorTicks
+                                ai = AnchorInfo(hblRef, PositionType.Bottom, ...
+                                    hlRef, PositionType.Above, bridgeLabelOffset, ...
+                                    'xBridgeLabel above tick labels');
+                            else
+                                ai = AnchorInfo(hblRef, PositionType.Bottom, ...
+                                    hbRef, PositionType.Above, bridgeLabelOffset, ...
+                                    'xBridgeLabel above tick labels');
+                            end
                             ax.addAnchor(ai);
                         end
                     end
@@ -2877,13 +3046,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 else
                     if ~otherSide
                         % left of axis
-                        
-                        ai = AnchorInfo(hbRef, PositionType.Right, ...
-                            ax.axh, PositionType.Left, offset, 'yTickBridge left of axis');
-                        ax.addAnchor(ai);
-                        ai = AnchorInfo(hbRef, PositionType.Width, ...
-                            [], 'tickLength', 0, 'yTickBridge width for outermost ticks');
-                        ax.addAnchor(ai);
+                        if ~useManPos
+                            ai = AnchorInfo(hbRef, PositionType.Right, ...
+                                ax.axh, PositionType.Left, offset, 'yTickBridge left of axis');
+                            ax.addAnchor(ai);
+                        end
+                        if tickMarks
+                            ai = AnchorInfo(hbRef, PositionType.Width, ...
+                                [], 'tickLength', 0, 'yTickBridge width for outermost ticks');
+                            ax.addAnchor(ai);
+                        end
                         
                         if ~isempty(ht)
                             % anchor ticks
@@ -2901,18 +3073,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                             'yTickLabels left of ticks');
                         ax.addAnchor(ai);
                         
+                        % anchor bridge label to ticks / bridge
                         if ~isempty(hbl)
-                            ai = AnchorInfo(hblRef, PositionType.Right, ...
-                                hlRef, PositionType.Left, bridgeLabelOffset, ...
-                                'yBridgeLabel left of tick labels');
+                            if p.Results.bridgeLabelAnchorTicks
+                                ai = AnchorInfo(hblRef, PositionType.Right, ...
+                                    hlRef, PositionType.Left, bridgeLabelOffset, ...
+                                    'yBridgeLabel left of tick labels');
+                            else
+                                ai = AnchorInfo(hblRef, PositionType.Right, ...
+                                    hbRef, PositionType.Left, bridgeLabelOffset, ...
+                                    'yBridgeLabel left of bridge');
+                            end
                             ax.addAnchor(ai);
                         end
                         
                     else
                         % right side
-                        ai = AnchorInfo(hbRef, PositionType.Left, ...
-                            ax.axh, PositionType.Right, offset, 'yTickBridge right of axis');
-                        ax.addAnchor(ai);
+                        if ~useManPos
+                            ai = AnchorInfo(hbRef, PositionType.Left, ...
+                                ax.axh, PositionType.Right, offset, 'yTickBridge right of axis');
+                            ax.addAnchor(ai);
+                        end
                         ai = AnchorInfo(hbRef, PositionType.Width, ...
                             [], 'tickLength', 0, 'yTickBridge width for outermost ticks');
                         ax.addAnchor(ai);
@@ -2933,10 +3114,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                             'yTickLabels right of ticks');
                         ax.addAnchor(ai);
 
+                        % anchor bridge label to ticks / bridge
                         if ~isempty(hbl)
-                            ai = AnchorInfo(hblRef, PositionType.Left, ...
-                                hlRef, PositionType.Right, bridgeLabelOffset, ...
-                                'yBridgeLabel right of tick labels');
+                            if p.Results.bridgeLabelAnchorTicks
+                                ai = AnchorInfo(hblRef, PositionType.Left, ...
+                                    hlRef, PositionType.Right, bridgeLabelOffset, ...
+                                    'yBridgeLabel right of tick labels');
+                            else
+                                ai = AnchorInfo(hblRef, PositionType.Left, ...
+                                    hbRef, PositionType.Right, bridgeLabelOffset, ...
+                                    'yBridgeLabel right of bridge');
+                            end
                             ax.addAnchor(ai);
                         end
                     end
@@ -2982,8 +3170,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             p.addParameter('textOffsetY', 0, @isscalar);
             p.addParameter('textOffsetX', 0, @isscalar);
-            p.addParameter('horizontalAlignment', 'center', @ischar);
-            p.addParameter('verticalAlignment', 'top', @ischar);
+            p.addParameter('horizontalAlignment', 'center', @isstringlike);
+            p.addParameter('verticalAlignment', 'top', @isstringlike);
             p.addParameter('addSpaceForScaleBar', true, @islogical);
             p.CaseSensitive = false;
             p.parse(varargin{:});
@@ -3186,7 +3374,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addRequired('orientation', @ischar);
             p.addParameter('length', [], @(x) isscalar(x) || isempty(x));
-            p.addParameter('units', '', @(x) isempty(x) || ischar(x));
+            p.addParameter('units', '', @(x) isempty(x) || isstringlike(x));
             p.addParameter('scaleFactor', 1, @isscalar); % 1 unit of axis x/y is scaleFactor units on scale bar
             p.addParameter('hideLabel', false, @islogical);
             p.addParameter('manualLabel', '', @(x) isempty(x) || ischar(x));
@@ -3198,6 +3386,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('fontSize', ax.scaleBarFontSize, @(x) isscalar(x));
             p.addParameter('manualPositionAlongAxis', [], @(x) isempty(x) || isscalar(x)); % position of right edge of scale bar
             p.addParameter('alignWithOtherScaleBar', true, @islogical);
+            
+            p.addParameter('scaleBarLabelLateralOffset', 0, @isscalar); 
             
             p.CaseSensitive = false;
             p.parse(varargin{:});
@@ -3340,6 +3530,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         ax.addHandlesToCollection('autoScaleBarXText', ht);
                         htRef = 'autoScaleBarXText';
                     end
+                    
+                    anchor_collection = "autoScaleBarX";
                 else
                     ax.addHandlesToCollection('autoScaleBarYRect', hr);
                     hrRef = 'autoScaleBarYRect';
@@ -3348,26 +3540,32 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         ax.addHandlesToCollection('autoScaleBarYText', ht);
                         htRef = 'autoScaleBarYText';
                     end
+                    
+                    anchor_collection = "autoScaleBarY";
                 end
             else 
                 hrRef = hr;
                 htRef = ht;
+                anchor_collection = "";
             end
             
             % build anchor for rectangle and label
             if p.Results.addAnchors
+                % remove old anchors in this collection
+                ax.deleteAnchorCollection(anchor_collection);
+                
                 if useX
                     % for x scale bar
                     ai = AnchorInfo(hrRef, PositionType.Height, [], 'scaleBarThickness', ...
                         0, 'xScaleBar thickness');
-                    ax.addAnchor(ai);
+                    ax.addAnchor(ai, 'collection', anchor_collection);
                     ai = AnchorInfo(hrRef, PositionType.Top, ax.axh, ...
                         PositionType.Bottom, 'axisPaddingBottom', ...
                         'xScaleBar at bottom of axis');
 %                     ai = AnchorInfo(hrRef, PositionType.Top, ax.axh, ...
 %                         PositionType.Bottom, 0, ...
 %                         'xScaleBar at bottom of axis');
-                    ax.addAnchor(ai);
+                    ax.addAnchor(ai, 'collection', anchor_collection);
                     if isempty(p.Results.manualPositionAlongAxis)
                         if p.Results.alignWithOtherScaleBar
                             ai = AnchorInfo(hrRef, PositionType.Right, ax.axh, ...
@@ -3378,7 +3576,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                 PositionType.Right, 0, ...
                                 'xScaleBar flush with right edge of axis');
                         end
-                        ax.addAnchor(ai);
+                        ax.addAnchor(ai, 'collection', anchor_collection);
                     end
                     if ~isempty(ht)
                         
@@ -3386,26 +3584,26 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                             'xScaleBarLabel below xScaleBar');
                         ax.addAnchor(ai);
                         if textAlign == "left"
-                            ai = AnchorInfo(htRef, PositionType.Left, hrRef, PositionType.Left, 0, ...
+                            ai = AnchorInfo(htRef, PositionType.Left, hrRef, PositionType.Left, p.Results.scaleBarLabelLateralOffset, ...
                                 'xScaleBarLabel flush with left edge of xScaleBar');
                         elseif textAlign == "center"
-                            ai = AnchorInfo(htRef, PositionType.Center, hrRef, PositionType.Center, 0, ...
+                            ai = AnchorInfo(htRef, PositionType.Center, hrRef, PositionType.Center, p.Results.scaleBarLabelLateralOffset, ...
                                 'xScaleBarLabel at center of xScaleBar');
                         elseif textAlign == "right"
-                            ai = AnchorInfo(htRef, PositionType.Right, hrRef, PositionType.Right, 0, ...
+                            ai = AnchorInfo(htRef, PositionType.Right, hrRef, PositionType.Right, p.Results.scaleBarLabelLateralOffset, ...
                                 'xScaleBarLabel flush with right edge of xScaleBar');
                         end
-                        ax.addAnchor(ai);
+                        ax.addAnchor(ai, 'collection', anchor_collection);
                     end
                 else
                     % for y scale bar
                     ai = AnchorInfo(hrRef, PositionType.Width, [], 'scaleBarThickness', 0, ...
                         'yScaleBar thickness');
-                    ax.addAnchor(ai);
+                    ax.addAnchor(ai, 'collection', anchor_collection);
                     ai = AnchorInfo(hrRef, PositionType.Left, ax.axh, ...
                         PositionType.Right, 'axisPaddingRight', ...
                         'yScaleBar at right of axis');
-                    ax.addAnchor(ai);
+                    ax.addAnchor(ai, 'collection', anchor_collection);
                     if isempty(p.Results.manualPositionAlongAxis)
                         if p.Results.alignWithOtherScaleBar
                             ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
@@ -3419,23 +3617,23 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                 PositionType.Bottom, 0, ...
                                 'yScaleBar flush with bottom edge of axis');
                         end
-                        ax.addAnchor(ai);
+                        ax.addAnchor(ai, 'collection', anchor_collection);
                     end
                     if ~isempty(ht)
                         ai = AnchorInfo(htRef, PositionType.Left, hrRef, PositionType.Right, 'scaleBarLabelOffset', ...
                             'yScaleBarLabel right of yScaleBar');
-                        ax.addAnchor(ai);
+                        ax.addAnchor(ai, 'collection', anchor_collection);
                         if textAlign == "top"
-                            ai = AnchorInfo(htRef, PositionType.Top, hrRef, PositionType.Top, 0, ...
+                            ai = AnchorInfo(htRef, PositionType.Top, hrRef, PositionType.Top, p.Results.scaleBarLabelLateralOffset, ...
                                 'yScaleBarLabel flush with top edge of yScaleBar');
                         elseif textAlign == "center"
-                            ai = AnchorInfo(htRef, PositionType.VCenter, hrRef, PositionType.VCenter, 0, ...
+                            ai = AnchorInfo(htRef, PositionType.VCenter, hrRef, PositionType.VCenter, p.Results.scaleBarLabelLateralOffset, ...
                                 'yScaleBarLabel at center of yScaleBar');
                         elseif textAlign == "bottom"
-                            ai = AnchorInfo(htRef, PositionType.Bottom, hrRef, PositionType.Bottom, 0, ...
+                            ai = AnchorInfo(htRef, PositionType.Bottom, hrRef, PositionType.Bottom, p.Results.scaleBarLabelLateralOffset, ...
                                 'yScaleBarLabel flush with bottom edge of xScaleBar');
                         end
-                        ax.addAnchor(ai);
+                        ax.addAnchor(ai, 'collection', anchor_collection);
                     end
                 end
             end
@@ -3471,7 +3669,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             p = inputParser();
             p.addRequired('interval', @(x) isvector(x) && numel(x) == 2);
-            p.addOptional('label', '', @ischar);
+            p.addOptional('label', '', @isstringlike);
             p.addParameter('labelColor', ax.tickFontColor, @(x) isvector(x) || isempty(x) || ischar(x));
             p.addParameter('color', [0.1 0.1 0.1], @(x) isvector(x) || ischar(x) || isempty(x));    
             p.addParameter('errorInterval', [], @(x) isempty(x) || (isvector(x) && numel(x) == 2)); % a background rectangle drawn to indicate error in the placement of the main interval
@@ -3480,6 +3678,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('manualPos', 0, @isscalar); % when leaveInPlace is true, where to place overall top along y
             p.addParameter('textOffsetY', 0, @isscalar);
             p.addParameter('textOffsetX', 0, @isscalar);
+            p.addParameter('addSpaceForScaleBar', true, @islogical);
             p.addParameter('horizontalAlignment', 'center', @ischar);
             p.addParameter('verticalAlignment', 'top', @ischar);
             p.addParameter('fontSize', ax.tickFontSize, @isscalar);
@@ -3545,16 +3744,26 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % intervalThickness). Marker tops sit at axisPaddingBottom from the
             % bottom of the axis. Note that this assumes markerDiameter >
             % intervalThickness.
+            if p.Results.addSpaceForScaleBar
+                offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.scaleBarThickness + ax.markerHeight/2;
+            else
+                offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.markerHeight/2;
+            end
             ai = AnchorInfo(hri, PositionType.VCenter, ax.axh, ...
-                PositionType.Bottom, @(ax,varargin) ax.axisPaddingBottom + ax.markerHeight/2, ...
+                PositionType.Bottom, offsetBottom, ...
                 sprintf('interval ''%s'' below axis', label));
             ax.addAnchor(ai);
 
             % add custom or default y offset from bottom of rectangle
             textOffsetY = p.Results.textOffsetY;
             pos = PositionType.verticalAlignmentToPositionType(p.Results.verticalAlignment);
+            if p.Results.addSpaceForScaleBar
+                offsetBottom = @(ax, varargin) ax.axisPaddingBottom + ax.scaleBarThickness + ax.intervalThickness + ax.markerLabelOffset + textOffsetY;
+            else
+                offsetBottom = @(ax, varargin) ax.axisPaddingBottom + ax.intervalThickness + ax.markerLabelOffset + textOffsetY;
+            end
             ai = AnchorInfo(ht, pos, ...
-                ax.axh, PositionType.Bottom, @(ax, varargin) ax.axisPaddingBottom + ax.markerHeight + ax.markerLabelOffset + textOffsetY, ...
+                ax.axh, PositionType.Bottom, offsetBottom, ...
                 sprintf('interval label ''%s'' below axis', label));
             ax.addAnchor(ai);
   
@@ -3604,8 +3813,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('fontSize', ax.labelFontSize, @isscalar);
             p.addParameter('color', [0 0 0], @(x) ischar(x) || iscell(x) || ismatrix(x));
             p.addParameter('leaveInPlace', false, @islogical);
+            p.addParameter('otherSide', false, @isscalar); % if true, place top / right, false place at bottom / left
             p.addParameter('manualPos', 0, @isscalar); % position to place along non-orientation axis, when leaveInPlace is true
             p.addParameter('rotation', 0, @isscalar);
+            p.addParameter('interpreter', 'none', @isstringlike);
             p.addParameter('showSpanLines', true, @islogical); % true to draw the line delineating the span, false for just the label
             p.CaseSensitive = false;
             p.parse(varargin{:});
@@ -3619,6 +3830,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             color = p.Results.color;
             leaveInPlace = p.Results.leaveInPlace;
             manualPos = p.Results.manualPos;
+            otherSide = p.Results.otherSide;
             
             % check sizes
             if isvector(span)
@@ -3646,8 +3858,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 xtext = mean(span, 1);
                 ytext = zeros(size(xtext));
                 ha = repmat({'center'}, size(xtext));
-                va = repmat({'top'}, size(xtext));
-                offset = 'axisPaddingBottom';
+                if ~otherSide
+                    va = repmat({'top'}, size(xtext));
+                    offset = 'axisPaddingBottom';
+                else
+                    va = repmat({'bottom'}, size(xtext));
+                    offset = 'axisPaddingTop';
+                end
                 
             else
                 % y axis lines
@@ -3656,12 +3873,20 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 ytext = mean(span, 1);
                 xtext = zeros(size(ytext));
                 if abs(p.Results.rotation) < 20
-                    ha = repmat({'right'}, size(xtext));
+                    if ~otherSide
+                        ha = repmat({'right'}, size(xtext));
+                    else
+                        ha = repmat({'left'}, size(xtext));
+                    end
                 else
                     ha = repmat({'center'}, size(xtext));
                 end
                 va = repmat({'middle'}, size(xtext));
-                offset = 'axisPaddingLeft';
+                if ~otherSide
+                    offset = 'axisPaddingLeft';
+                else
+                    offset = 'axisPaddingRight';
+                end
             end
             if iscell(color)
                 nc = numel(color);
@@ -3693,7 +3918,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 ht(i) = text(double(xtext(i)), double(ytext(i)), label{i}, ...
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
-                    'Parent', ax.axhDraw, 'Interpreter', 'none', 'BackgroundColor', 'none', ...
+                    'Parent', ax.axhDraw, 'Interpreter', p.Results.interpreter, 'BackgroundColor', 'none', ...
                     'FontSize', fontSize, 'Rotation', p.Results.rotation);
                 if iscell(color)
                     set(ht(i), 'Color', color{wrap(i)});
@@ -3715,12 +3940,22 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if ~leaveInPlace
                     % build anchor for lines
                     if useX
-                        ai = AnchorInfo(hl, PositionType.Top, ax.axh, ...
-                            PositionType.Bottom, offset, 'xLabeledSpan below axis');
+                        if ~otherSide
+                            ai = AnchorInfo(hl, PositionType.Top, ax.axh, ...
+                                PositionType.Bottom, offset, 'xLabeledSpan below axis');
+                        else
+                            ai = AnchorInfo(hl, PositionType.Bottom, ax.axh, ...
+                                PositionType.Top, offset, 'xLabeledSpan above axis');
+                        end
                         ax.addAnchor(ai);
                     else
-                        ai = AnchorInfo(hl, PositionType.Right, ...
-                            ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
+                        if ~otherSide
+                            ai = AnchorInfo(hl, PositionType.Right, ...
+                                ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
+                        else
+                            ai = AnchorInfo(hl, PositionType.Left, ...
+                                ax.axh, PositionType.Right, offset, 'yLabeledSpan right of axis');
+                        end
                         ax.addAnchor(ai);
                     end
                 end
@@ -3728,27 +3963,49 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if ~isempty(ht)
                     % anchor labels to lines (always)
                     if useX
-                        ai = AnchorInfo(ht, PositionType.Top, ...
-                            hl, PositionType.Bottom, labelOffset, ...
-                            'xLabeledSpan below ticks');
+                        if ~otherSide
+                            ai = AnchorInfo(ht, PositionType.Top, ...
+                                hl, PositionType.Bottom, labelOffset, ...
+                                'xLabeledSpan below ticks');
+                        else
+                            ai = AnchorInfo(ht, PositionType.Bottom, ...
+                            hl, PositionType.Top, labelOffset, ...
+                            'xLabeledSpan above ticks');
+                        end
                         ax.addAnchor(ai);
                     else
-                        ai = AnchorInfo(ht, PositionType.Right, ...
-                            hl, PositionType.Left, labelOffset, ...
+                        if ~otherSide
+                            ai = AnchorInfo(ht, PositionType.Right, ...
+                                hl, PositionType.Left, labelOffset, ...
+                                'yLabeledSpan left of ticks');
+                        else
+                            ai = AnchorInfo(ht, PositionType.Left, ...
+                            hl, PositionType.Right, labelOffset, ...
                             'yLabeledSpan left of ticks');
+                        end
                         ax.addAnchor(ai);
                     end
                 end
             else
                 % anchor labels to axis
                 if useX
+                    if ~otherSide
                         ai = AnchorInfo(ht, PositionType.Top, ax.axh, ...
                             PositionType.Bottom, offset, 'xLabeledSpan below axis');
-                        ax.addAnchor(ai);
                     else
+                        ai = AnchorInfo(ht, PositionType.Bottom, ax.axh, ...
+                            PositionType.Top, offset, 'xLabeledSpan above axis');
+                    end
+                    ax.addAnchor(ai);
+                else
+                    if ~otherSide
                         ai = AnchorInfo(ht, PositionType.Right, ...
                             ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
-                        ax.addAnchor(ai);
+                    else
+                        ai = AnchorInfo(ht, PositionType.Left, ...
+                            ax.axh, PositionType.Right, offset, 'yLabeledSpan right of axis');
+                    end
+                    ax.addAnchor(ai);
                 end
             end
             
@@ -3762,9 +4019,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~leaveInPlace
                 % add handles to handle collections
                 if useX
-                    ax.addHandlesToCollection('belowX', hlist);
+                    if ~otherSide
+                        ax.addHandlesToCollection('belowX', hlist);
+                    else
+                        ax.addHandlesToCollection('aboveX', hlist);
+                    end
                 else
-                    ax.addHandlesToCollection('leftY', hlist);
+                    if ~otherSide
+                        ax.addHandlesToCollection('leftY', hlist);
+                    else
+                        ax.addHandlesToCollection('rightY', hlist);
+                    end
                 end
             end
             
@@ -3775,7 +4040,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addHandlesToCollection('topLayer', hlist);
         end 
         
-        function addColoredLabels(ax, labels, colors, varargin)
+        function hvec = addColoredLabels(ax, labels, colors, varargin)
             import AutoAxis.PositionType;
             import AutoAxis.AnchorInfo;
             
@@ -3785,10 +4050,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('outsideX', false, @islogical);
             p.addParameter('outsideY', false, @islogical);
             p.addParameter('fontSize', ax.labelFontSize, @isscalar);
+            p.addParameter('fontWeight', "normal", @isscalar);
             p.addParameter('spacing', 'tickLabelOffset', @(x) true);
             p.addParameter('offsetX', '', @(x) true);
             p.addParameter('offsetY', '', @(x) true);
-            p.addParameter('stacking', 'vertical', @ischar);
+            p.addParameter('stacking', 'vertical', @isstringlike);
             p.addParameter('fillColor', 'none', @(x) true);
             p.addParameter('fillAlpha', 1, @isscalar);
             p.parse(varargin{:});
@@ -3817,6 +4083,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if isnumeric(labels)
                 labels = arrayfun(@num2str, labels, 'UniformOutput', false);
             end  
+            
+            if ischar(labels)
+                labels = string(labels);
+            end
             
             N = numel(labels);
             
@@ -3848,6 +4118,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 label = labels{i};
                 if iscell(colors)
                     c = colors{i};
+                elseif size(colors, 1) == 1
+                    c = colors;
                 else
                     c = colors(i, :);
                 end
@@ -3861,8 +4133,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 
                 
-                hvec(i) = text(x, y, label, 'FontSize', p.Results.fontSize, ...
-                    'Color', c, 'HorizontalAlignment', horzAlign, ...
+                hvec(i) = text(x, y, label, 'FontSize', p.Results.fontSize, 'FontWeight', p.Results.fontWeight, ...
+                    'Color', c, 'Margin', 0.01, 'HorizontalAlignment', horzAlign, ...
                     'VerticalAlignment', vertAlign);
                 if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
                     set(hvec(i), 'BackgroundColor', 'none');
@@ -3936,8 +4208,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         % anchor to text left/left
                         ai = AnchorInfo(hvec(i), innerAnchorPosX, hvec(i+anchorToOffset), innerAnchorPosX.flip(), p.Results.spacing, ...
                             sprintf('colorLabel %s %s to %s %s', labels{i}, char(posX), labels{i+anchorToOffset}, char(posX.flip())));
+                        ax.addAnchor(ai);
                     end
-                    ax.addAnchor(ai);
                 end
                 
                 % anchor group to axis
@@ -4345,14 +4617,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('orientation', 'vertical', @ischar);
             p.addParameter('width', NaN, @isscalar);
             p.addParameter('height', NaN, @isscalar);
-            p.addParameter('units', '', @ischar);
+            p.addParameter('units', '', @isstringlike);
             p.addParameter('labelLimits', true, @islogical);
             p.addParameter('limitHighAppendUnits', true, @islogical);
             p.addParameter('limitLowAppendUnits', false, @islogical);
             p.addParameter('labelLow', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelBelow', '', @isstringlike); % used to describe the lower limit
+            p.addParameter('labelBelowAlignTicks', true, @islogical); % keep in line with ticks, or align left edge of colorbar
             p.addParameter('labelHigh', '', @(x) ischar(x) || isscalar(x));
-            p.addParameter('labelAbove', '', @isstringlike); % used to describe the upper limit
+            p.addParameter('labelAbove', '', @isstringlike); % used to describe the upper limit; 
+            p.addParameter('labelAboveAlignTicks', true, @islogical); % keep in line with ticks, or align left edge of colorbar
             p.addParameter('labelCenter', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelCenterRotation', 0, @isscalar);
             p.addParameter('labelCenterNextLine', '', @(x) ischar(x) || isscalar(x));
@@ -4370,6 +4644,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             isVertical = strncmp(p.Results.orientation, 'v', 1);
             labelFormat = char(p.Results.labelFormat);
             labelFormatWithUnits = [labelFormat, ' %s'];
+            units = string(p.Results.units);
             
             cmap = p.Results.cmap;
             if isempty(cmap)
@@ -4629,8 +4904,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 
             if isempty(p.Results.labelHigh)
                 if p.Results.labelLimits
-                    if ~isempty(p.Results.units) && p.Results.limitHighAppendUnits
-                        labelHigh = sprintf(labelFormatWithUnits, climits(2), p.Results.units);
+                    if ~strcmp(units, "") && p.Results.limitHighAppendUnits
+                        labelHigh = sprintf(labelFormatWithUnits, climits(2), units);
                     else
                         labelHigh = sprintf(labelFormat, climits(2));
                     end
@@ -4643,8 +4918,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             if isempty(p.Results.labelLow)
                 if p.Results.labelLimits
-                    if ~isempty(p.Results.units) && p.Results.limitLowAppendUnits
-                        labelLow = sprintf(labelFormatWithUnits, climits(1), p.Results.units);
+                    if ~strcmp(units, "") && p.Results.limitLowAppendUnits
+                        labelLow = sprintf(labelFormatWithUnits, climits(1), units);
                     else
                         labelLow = sprintf(labelFormat, climits(1)); % no units
                     end
@@ -4656,6 +4931,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             function x = toString(x) 
+                if isstring(x), return; end
                 if ~ischar(x), x = num2str(x); end
             end
             
@@ -4667,19 +4943,35 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 else
                     ax.anchorBelowLeftAlign(hl, himg, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelLow');
                 end
-                
-                % anchor labelBelow directly beneath label low
-                labelBelow = p.Results.labelBelow;
-                if ~isempty(labelBelow)
-                    hbl = text(0, 0, toString(labelBelow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
-                    ax.anchorBelowLeftAlign(hbl, hl, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelBelow');
-                else
-                    hbl = [];
-                end
             else
                 hl = [];
+            end
+            
+            labelBelow = p.Results.labelBelow;
+            if ~isempty(labelBelow)
+                % anchor labelBelow directly beneath label low
+                hbl = text(0, 0, toString(labelBelow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
+                if p.Results.labelBelowAlignTicks || ~isVertical
+                    if isVertical
+                        if ~isempty(hl)
+                            ax.anchorBelowLeftAlign(hbl, hl, 'offsetX', 'tickLabelOffset', 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelBelow');
+                        else
+                            ax.anchorBelowRight(hbl, himg, 'offsetX', 'tickLabelOffset', 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelBelow');
+                        end
+                    else
+                        if ~isempty(hl)
+                            ax.anchorBelowLeftAlign(hbl, hl, 'offsetX', 0, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+                        else
+                            ax.anchorBelowLeftAlign(hbl, himg, 'offsetX', 0, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+                        end
+                    end
+                else
+                    % align left edge with colorbar, must be vertical
+                    ax.anchorBelowLeftAlign(hbl, himg, 'offsetX', 0, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+                end
+            else
                 hbl = [];
-            end            
+            end
             
             if ~isempty(p.Results.labelCenter)
                 hc = text(0, 0, toString(p.Results.labelCenter), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelCenterRotation, 'Margin', 0.01);
@@ -4699,21 +4991,33 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 else
                     ax.anchorBelowRightAlign(hr, himg, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar label');
                 end
-                
-                % anchor labelBelow directly beneath label low
-                labelAbove = p.Results.labelAbove;
-                if ~isempty(labelAbove)
-                    hab = text(0, 0, toString(labelAbove), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
-                    if isVertical
-                        ax.anchorAboveLeftAlign(hab, hr, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+            else
+                hr = []; 
+            end
+            
+            labelAbove = p.Results.labelAbove;
+            % anchor labelBelow directly beneath label low
+            if ~isempty(labelAbove)
+                hab = text(0, 0, toString(labelAbove), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'HorizontalAlignment', 'left', 'Parent', ax.axhDraw, 'Margin', 0.01);
+                if p.Results.labelAboveAlignTicks || ~isVertical
+                    if ~isempty(hr)
+                        if isVertical
+                            ax.anchorAboveLeftAlign(hab, hr, 'offsetX', 0, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+                        else
+                            ax.anchorBelowLeftAlign(hab, hr, 'offsetX', 0, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+                        end
                     else
-                        ax.anchorBelowLeftAlign(hab, hr, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+                        if isVertical
+                            ax.anchorRightAbove(hab, himg, 'offsetX', 'tickLabelOffset', 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+                        else
+                            ax.anchorBelowLeftAlign(hab, himg, 'offsetX', 0, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
+                        end
                     end
                 else
-                    hab = [];
+                    % align left edge with colorbar, must be vertical
+                    ax.anchorAboveLeftAlign(hab, himg, 'offsetX', 0, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar labelAbove');
                 end
             else
-                hr = [];
                 hab = [];
             end
             
@@ -4833,7 +5137,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('offsetY', 0, @(x) true);
             p.addParameter('includeMargin', false, @islogical);
             
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4859,7 +5163,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('offsetY', 0, @(x) true);
             p.addParameter('width', 1, @(x) true);
             p.addParameter('height', 1, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             ax.anchorToAxisTopRight(h, 'offsetX', p.Results.offsetX, 'offsetY', p.Results.offsetY, p.Results.desc);
@@ -4876,7 +5180,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4891,7 +5195,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0,  @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4905,7 +5209,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function anchorAbove(ax, h, hto, varargin)
             p = inputParser();
             p.addParameter('offset', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4918,7 +5222,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4932,7 +5236,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function anchorBelow(ax, h, hto, varargin)
             p = inputParser();
             p.addParameter('offset', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4945,7 +5249,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4960,7 +5264,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4975,7 +5279,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -4990,7 +5294,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5005,7 +5309,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5019,7 +5323,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function anchorRight(ax, h, hto, varargin)
             p = inputParser();
             p.addParameter('offset', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5032,7 +5336,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5043,11 +5347,41 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addAnchor(ai);
         end
         
+        function anchorRightAbove(ax, h, hto, varargin)
+            p = inputParser();
+            p.addParameter('offsetX', 0, @(x) true);
+            p.addParameter('offsetY', 0, @(x) true);
+            p.addParameter('desc', '', @isstringlike);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.Bottom, hto, PositionType.Top, p.Results.offsetY, p.Results.desc);
+            ax.addAnchor(ai);
+            ai = AnchorInfo(h, PositionType.Left, hto, PositionType.Right, p.Results.offsetX, p.Results.desc);
+            ax.addAnchor(ai);
+        end
+        
+        function anchorRightBelow(ax, h, hto, varargin)
+            p = inputParser();
+            p.addParameter('offsetX', 0, @(x) true);
+            p.addParameter('offsetY', 0, @(x) true);
+            p.addParameter('desc', '', @isstringlike);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.Top, hto, PositionType.Bottom, p.Results.offsetY, p.Results.desc);
+            ax.addAnchor(ai);
+            ai = AnchorInfo(h, PositionType.Left, hto, PositionType.Right, p.Results.offsetX, p.Results.desc);
+            ax.addAnchor(ai);
+        end
+        
         function anchorRightCenterAlign(ax, h, hto, varargin)
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5062,7 +5396,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offsetX', 0, @(x) true);
             p.addParameter('offsetY', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5076,7 +5410,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function anchorLeft(ax, h, hto, varargin)
             p = inputParser();
             p.addParameter('offset', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5085,9 +5419,24 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addAnchor(ai);
         end
         
+        function anchorLeftCenterAlign(ax, h, hto, varargin)
+            p = inputParser();
+            p.addParameter('offsetX', 0, @(x) true);
+            p.addParameter('offsetY', 0, @(x) true);
+            p.addParameter('desc', '', @isstringlike);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.VCenter, hto, PositionType.VCenter, p.Results.offsetY, p.Results.desc);
+            ax.addAnchor(ai);
+            ai = AnchorInfo(h, PositionType.Right, hto, PositionType.Left, p.Results.offsetX, p.Results.desc);
+            ax.addAnchor(ai);
+        end
+        
         function anchorAroundObjectWithPadding(ax, h, haround, padding, varargin)
             p = inputParser();
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5101,7 +5450,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function anchorWidth(ax, h, width, varargin)
             p = inputParser();
             p.addParameter('offset', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5112,7 +5461,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         function anchorHeight(ax, h, height, varargin)
             p = inputParser();
             p.addParameter('offset', 0, @(x) true);
-            p.addParameter('desc', '', @ischar);
+            p.addParameter('desc', '', @isstringlike);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
@@ -5122,7 +5471,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
     end
     
     methods % Anchor specific 
-        function addAnchor(ax, infoVec)
+        function addAnchor(ax, infoVec, varargin)
+            p = inputParser();
+            p.addParameter('collection', "", @isstringlike);
+            p.parse(varargin{:});
+            
             for iA = 1:numel(infoVec)
                 info = infoVec(iA);
                 ind = numel(ax.anchorInfo) + 1;
@@ -5140,14 +5493,31 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % force an update of the dependency graph and reordering of the
             % anchors
             ax.refreshNeeded = true;
+            
+            collection = string(p.Results.collection);
+            if collection ~= ""
+                ax.addAnchorToCollection(collection, infoVec);
+            end
         end
         
-        function deleteAnchors(ax, mask)
+        function deleteAnchors(ax, maskOrAnchors)
+            if islogical(maskOrAnchors) || isnumeric(maskOrAnchors)
+                mask = maskOrAnchors;
+            elseif isa(maskOrAnchors, 'AutoAxis.AnchorInfo')
+                mask = ismember(ax.anchorInfo, maskOrAnchors);
+            end
+            
             ax.anchorInfo(mask) = [];
             ax.refreshNeeded = true;
         end
         
-        function update(ax)
+        function update(ax, force)
+            if nargin < 2
+                force = false;
+            end
+            if force
+                ax.enableUpdate = true;
+            end
             if ~ax.enabled || ~ax.enableUpdate
                 return;
             end
@@ -5248,10 +5618,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % restore the X and Y label handles and make them visible since
             % they have a tendency to get hidden (presumably by axis off)
             ax.hXLabel = get(ax.axh, 'XLabel');
-            set(ax.hXLabel, 'Visible', 'on');
+            set(ax.hXLabel, 'Visible', 'on', 'FontSize', ax.labelFontSize);
             
             ax.hYLabel = get(ax.axh, 'YLabel');
-            set(ax.hYLabel, 'Visible', 'on');
+            set(ax.hYLabel, 'Visible', 'on', 'FontSize', ax.labelFontSize, 'BackgroundColor', 'none');
 
 %             ax.addXLabel();
 %             ax.addYLabel();
@@ -5860,11 +6230,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~isempty(info.ha) && ~isempty(info.margin) && ~isnan(info.margin)
                 offset = 0;
                 
-                if info.posa == PositionType.Top
+                if info.posa == PositionType.Top || info.posa == PositionType.VCenter
                     offset = info.margin / ax.yDataToUnits;
                 elseif info.posa == PositionType.Bottom
                     offset = -info.margin / ax.yDataToUnits;
-                elseif info.posa == PositionType.Left
+                elseif info.posa == PositionType.Left ||  info.posa == PositionType.HCenter
                     offset = -info.margin / ax.xDataToUnits;
                 elseif info.posa == PositionType.Right
                     offset = info.margin / ax.xDataToUnits;
