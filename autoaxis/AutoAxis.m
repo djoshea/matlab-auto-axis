@@ -2339,7 +2339,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('tick', [], @isvector);
             p.addParameter('tickLabel', {}, @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('tickAlignment', [], @(x) isempty(x) || iscellstr(x) || isstring(x));
+            p.addParameter('orthTickAlignment', [], @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('offset', [], @(x) true); % default is axisPadding
+            p.addParameter('rotation', 0, @isscalar);
             p.addParameter('fontSize', ax.tickFontSize, @isscalar);
             p.addParameter('color', ax.tickColor, @(x) true);
             p.CaseSensitive = false;
@@ -2384,7 +2386,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     tickAlignment = repmat({'middle'}, numel(ticks), 1);
                 end
             else
-                tickAlignment = p.Result.tickAlignment;
+                if iscell(p.Results.tickAlignment)
+                    tickAlignment = p.Results.tickAlignment;
+                else
+                    tickAlignment = repmat({char(p.Results.tickAlignment)}, numel(ticks), 1);
+                end
             end
             
             color = p.Results.color;
@@ -2395,19 +2401,36 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 xtext = ticks;
                 ytext = 0 * ticks;
                 ha = tickAlignment;
-                if outside
-                    va = repmat({'top'}, numel(ticks), 1);
+
+                if isempty(p.Results.orthTickAlignment)
+                    if outside
+                        va = repmat({'top'}, numel(ticks), 1);
+                    else
+                        va = repmat({'bottom'}, numel(ticks), 1);
+                    end
                 else
-                    va = repmat({'bottom'}, numel(ticks), 1);
+                    if iscell(p.Results.orthTickAlignment)
+                        va = p.Results.orthTickAlignment;
+                    else
+                        va = repmat({char(p.Results.orthTickAlignment)}, numel(ticks), 1);
+                    end
                 end
             else
                 % y axis labels
                 xtext = 0* ticks;
                 ytext = ticks;
-                if outside
-                    ha = repmat({'right'}, numel(ticks), 1);
+                if isempty(p.Results.orthTickAlignment)
+                    if outside
+                        ha = repmat({'right'}, numel(ticks), 1);
+                    else
+                        ha = repmat({'left'}, numel(ticks), 1);
+                    end
                 else
-                    ha = repmat({'left'}, numel(ticks), 1);
+                    if iscell(p.Results.orthTickAlignment)
+                        ha = p.Results.orthTickAlignment;
+                    else
+                        ha = repmat({char(p.Results.verticalTickAlignment)}, numel(ticks), 1);
+                    end
                 end
                 va = tickAlignment;
                 offset = {'axisPaddingLeft', 'tickLabelOffset'};
@@ -2417,7 +2440,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             for i = 1:numel(ticks)
                 ht(i) = text(xtext(i), ytext(i), labels{i}, ...
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
-                    'Interpreter', 'none', 'Parent', ax.axhDraw, 'Background', 'none');
+                    'Interpreter', 'none', 'Parent', ax.axhDraw, 'Background', 'none', Rotation=p.Results.rotation);
             end
             set(ht, 'Clipping', 'off', 'Margin', 0.1, 'FontSize', fontSize, ...
                     'Color', color);
@@ -4057,8 +4080,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('stacking', 'vertical', @isstringlike);
             p.addParameter('fillColor', 'none', @(x) true);
             p.addParameter('fillAlpha', 1, @isscalar);
+            p.addParameter('interpreter', 'none', @isstringlike);
             p.parse(varargin{:});
             posX = p.Results.posX;
+            interpreter = p.Results.interpreter;
             outsideX = p.Results.outsideX;
             offsetX = p.Results.offsetX;
             if isempty(offsetX)
@@ -4135,7 +4160,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 
                 hvec(i) = text(x, y, label, 'FontSize', p.Results.fontSize, 'FontWeight', p.Results.fontWeight, ...
                     'Color', c, 'Margin', 0.01, 'HorizontalAlignment', horzAlign, ...
-                    'VerticalAlignment', vertAlign);
+                    'VerticalAlignment', vertAlign, 'Interpreter', interpreter);
                 if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
                     set(hvec(i), 'BackgroundColor', 'none');
                 else
