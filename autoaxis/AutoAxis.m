@@ -245,6 +245,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         showXExponent = false;
         showYExponent = false;
         
+        % holds onto any specific overrides for these axes
+        xAutoAxisInfo = struct();
+        yAutoAxisInfo = struct();
+
         % for tiled axes with multiple limits, this guides the creation of
         % the tick bridges and grid lines
         xAutoBridgeInfo
@@ -1774,7 +1778,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('anchorToAxis', ax.anchorYLabelToAxis, @islogical);
             p.parse(varargin{:});
             
-            ax.anchorXLabelToAxis = p.Results.anchorToAxis;
+            ax.anchorYLabelToAxis = p.Results.anchorToAxis;
             
             % remove any existing anchors with XLabel
             ax.removeHandles(get(ax.axh, 'YLabel'), whereAnchor=false);
@@ -1844,8 +1848,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('label', '', @isstringlike);
             p.addParameter('extendToLimits', ax.autoAxisXExtendToLimits, @islogical);
+            p.addParameter('persistUnmatchedArgs', true, @islogical); % allows update() to call without extra args
             p.parse(varargin{:});
             ax.autoAxisXExtendToLimits = p.Results.extendToLimits;
+            ax.autoAxisYExtendToLimits = p.Results.extendToLimits;
+            if p.Results.persistUnmatchedArgs
+                ax.yAutoAxisInfo = p.Unmatched;
+            end
             
             import AutoAxis.PositionType;
             if ~isempty(ax.autoAxisX)
@@ -1861,7 +1870,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 'addAnchors', true, ...
                 'otherSide', strcmp(ax.axh.XAxisLocation, 'top'), ...
                 'extendToLimits', ax.autoAxisXExtendToLimits, ...
-                'manualPositionOrthogonalAxis', ax.autoAxisXManualPositionY);
+                'manualPositionOrthogonalAxis', ax.autoAxisXManualPositionY, ax.xAutoAxisInfo);
             ax.autoAxisX.h = hlist;
             
             % remove after the new ones are added by addTickBridge
@@ -1885,8 +1894,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('label', '', @isstringlike);
             p.addParameter('extendToLimits', ax.autoAxisYExtendToLimits, @islogical);
+            p.addParameter('persistUnmatchedArgs', true, @islogical); % allows update() to call without extra args
+            p.KeepUnmatched = true;
             p.parse(varargin{:});
             ax.autoAxisYExtendToLimits = p.Results.extendToLimits;
+            if p.Results.persistUnmatchedArgs
+                ax.yAutoAxisInfo = p.Unmatched;
+            end
             
             import AutoAxis.PositionType;
             if ~isempty(ax.autoAxisY)
@@ -1909,7 +1923,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 'addAnchors', true, ...
                 'otherSide', strcmp(ax.axh.YAxisLocation, 'right'), ...
                 'extendToLimits', ax.autoAxisYExtendToLimits, ...
-                'manualPositionOrthogonalAxis', ax.autoAxisYManualPositionX);
+                'manualPositionOrthogonalAxis', ax.autoAxisYManualPositionX, ax.yAutoAxisInfo);
             ax.autoAxisY.h = hlist;
             
             % remove after the new ones are added by addTickBridge
@@ -1938,6 +1952,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('autoTicks', true, @islogical); % use autoticks, false means just start stop and zero
             p.addParameter('hideGridAfter', true, @islogical); % automatically mask grid to the right of
             p.addParameter('extendToLimits', 'auto', @(x) true); % automatically mask grid to the right of
+            p.addParameter('tickLabelOffset', []);
+            p.addParameter('bridgeLabelOffset', []);
             p.parse(varargin{:});
             
             info = p.Results;
@@ -1964,6 +1980,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('zeroLabel', '0', @isstringlike); % label associated with 0
             p.addParameter('autoTicks', true, @islogical); % use autoticks, false means just start stop and zero
             p.addParameter('hideGridAfter', true, @islogical); % automatically mask grid to the right of
+            p.addParameter('tickLabelOffset', []);
+            p.addParameter('bridgeLabelOffset', []);
             p.parse(varargin{:});
             
             info = p.Results;
@@ -2027,12 +2045,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 [ax.xAutoBridge, xticks, xticksminor] = cellvec(numel(ax.xAutoBridgeInfo));
                 for i = 1:numel(ax.xAutoBridgeInfo)
                     [args, xticks{i}, xticksminor{i}] = generateTickArgs(ax.xAutoBridgeInfo(i), 'x');
+                    other_args = generateOtherArgs(ax.xAutoBridgeInfo(i), 'x');
                     infoThis = ax.xAutoBridgeInfo(i);
                     if infoThis.drawBridge && ~isempty(xticks{i})
                         hlist = ax.addTickBridge('x', ...
                             'useAutoBridgeCollections', true, ...
                             'addAnchors', i == 1, ...
-                            'otherSide', strcmp(ax.axh.XAxisLocation, 'right'), args{:});
+                            'otherSide', strcmp(ax.axh.XAxisLocation, 'right'), args{:}, other_args{:});
                     else
                         hlist = gobjects(0, 1);
                     end
@@ -2065,12 +2084,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 [ax.yAutoBridge, yticks, yticksminor] = cellvec(numel(ax.yAutoBridgeInfo));
                 for i = 1:numel(ax.yAutoBridgeInfo)
                     [args, yticks{i}, yticksminor{i}] = generateTickArgs(ax.yAutoBridgeInfo(i), 'y');
+                    other_args = generateOtherArgs(ax.xAutoBridgeInfo(i), 'x');
                     infoThis = ax.yAutoBridgeInfo(i);
                     if infoThis.drawBridge && ~isempty(yticks{i})
                         hlist = ax.addTickBridge('y', ...
                             'useAutoBridgeCollections', true, ...
                             'addAnchors', i == 1, ...
-                            'otherSide', strcmp(ax.axh.YAxisLocation, 'top'), args{:});
+                            'otherSide', strcmp(ax.axh.YAxisLocation, 'top'), args{:}, other_args{:});
                     else
                         hlist = gobjects(0, 1);
                     end
@@ -2158,6 +2178,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if extendToLimits
                     args = cat(2, args, {'span', [info.start info.stop] + info.zero});
                 end
+            end
+
+            function args = generateOtherArgs(info, which) %#ok<INUSD> 
+                if isfield(info, 'bridgeLabelOffset') && ~isempty(info.bridgeLabelOffset)
+                    args.bridgeLabelOffset = info.bridgeLabelOffset;
+                end
+
+                if isfield(info, 'tickLabelOffset') && ~isempty(info.tickLabelOffset)
+                    args.tickLabelOffset = info.tickLabelOffset;
+                end
+
+                args = namedargs2cell(args);
             end
         end
         
@@ -3092,7 +3124,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         
                         % anchor labels to bridge
                         ai = AnchorInfo(hlRef, PositionType.Right, ...
-                            hbRef, PositionType.Left, 'tickLabelOffset', ...
+                            hbRef, PositionType.Left, tickLabelOffset, ...
                             'yTickLabels left of ticks');
                         ax.addAnchor(ai);
                         
@@ -3188,6 +3220,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('intervalColor', [0.5 0.5 0.5], @(x) isvector(x) || ischar(x) || isempty(x));
             
             p.addParameter('distribution', [], @(x) isempty(x) || isvector(x)); % like interval but alpha value varies with distribution
+            p.addParameter('normalizeDistribution', true, @islogical); % if false, distribution must already be scaled to [0 1]
             p.addParameter('distributionBins', [], @(x) isempty(x) || isvector(x)); % left edges of the bins
             p.addParameter('distributionColor', [0.5 0.5 0.5], @(x) isvector(x) || ischar(x) || isempty(x));
             
@@ -3229,8 +3262,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             hasDistribution = false;
             if ~isempty(p.Results.distribution)
                 dist = p.Results.distribution;
-                dist = dist - min(dist(:));
-                dist = dist ./ max(dist(:));
+                if p.Results.normalizeDistribution
+                    dist = dist - min(dist(:));
+                    dist = dist ./ max(dist(:));
+                end
                 bins = p.Results.distributionBins;
              
                 if ~isempty(dist)
@@ -3248,7 +3283,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         alphadata = makerow(dist);
 
                         % set the height later
-                        hdist = image(bins(1), yl(1), imdata, ...
+                        hdist = image('XData', bins, 'YData', [yl(1); yl(1)+1], 'CData', imdata, ...
                             'AlphaData', alphadata, ...
                             'YLimInclude', 'off', 'XLimInclude', 'off', 'Clipping', 'off', 'Parent', ax.axhDraw);
                         AutoAxis.hideInLegend(hdist);
@@ -3359,34 +3394,234 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
         end
         
-%         function ht = addLabelX(ax, varargin)
-%             import AutoAxis.PositionType;
-%             
-%             p = inputParser();
-%             p.addRequired('x', @isscalar);
-%             p.addRequired('label', @ischar);
-%             p.addParameter('labelColor', ax.tickFontColor, @(x) isvector(x) || isempty(x) || ischar(x));
-%             p.CaseSensitive = false;
-%             p.parse(varargin{:});
-%             
-%             label = p.Results.label;
-%             
-%             yl = get(ax.axh, 'YLim');
-%             
-%             ht = text(p.Results.x, yl(1), p.Results.label, ...
-%                 'FontSize', ax.tickFontSize, 'Color', p.Results.labelColor, ...
-%                 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top', ...
-%                 'Parent', ax.axhDraw, 'Interpreter', 'none');
-%             
-%             ai = AutoAxis.AnchorInfo(ht, PositionType.Top, ...
-%                 ax.axh, PositionType.Bottom, 'axisPaddingBottom', ...
-%                 sprintf('labelX ''%s'' to bottom of axis', label));
-%             ax.addAnchor(ai);
-%             
-%             % add to belowX handle collection to update the dependent
-%             % anchors
-%             ax.addHandlesToCollection('belowX', ht);
-%         end
+        % 
+        function hstrip = addColorStrip(ax, orientation, varargin)
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            
+            p = inputParser();
+            p.addRequired('orientation', @isstringlike);
+            p.addParameter('position', @isvector);
+            p.addParameter('colors', [], @ismatrix); % specify the raw colors at each value
+            p.addParameter('color', [], @isvector); % specify a single color to use alpha as the value indicator
+            p.addParameter('colormap', []);
+            p.addParameter('colormap_limits', []);
+            p.addParameter('values', []);
+            p.addParameter('normalizeValues', true, @islogical);
+            p.addParameter('alpha', 1);
+            p.addParameter('indicator', [], @(x) isvector(x) && islogical(x));
+            p.addParameter('exactIndicatorEdges', true, @islogical);
+            p.addParameter('uniformSpacing', [], @(x) isempty(x) || islogical(x));
+            p.addParameter('otherSide', false, @islogical);
+            p.addParameter('offset', NaN);
+            p.addParameter('height', ax.scaleBarThickness, @isscalar);
+
+            p.parse(orientation, varargin{:});
+
+            axis_pos = makecol(p.Results.position);
+            alpha = p.Results.alpha;
+            if isscalar(alpha)
+                alpha = repmat(alpha, numel(axis_pos), 1);
+            end
+
+            if isempty(p.Results.uniformSpacing)
+                dts = uniquetol(diff(axis_pos), mean(diff(axis_pos)) / 1000);
+                if numel(dts) > 1
+                    uniformSpacing = false; % we need to use patch instead of image
+                else
+                    uniformSpacing = true; % image okay
+                end
+            else
+                uniformSpacing = p.Results.uniformSpacing;
+            end
+
+            otherSide = p.Results.otherSide;
+            pos_computed = false;
+
+            % determine what the color values will be
+            if ~isempty(p.Results.colors)
+                colors = p.Results.colors;
+            elseif ~isempty(p.Results.values)
+                values = p.Results.values;
+                if p.Results.normalizeValues
+                    values = (values - min(values(:))) / (max(values(:)) - min(values(:)));
+                end
+                if ~isempty(p.Results.color)
+                    % value sets alpha
+                    colors = repmat(p.Results.color, numle(axis_pos), 1);
+                    alpha = values;
+                else
+                    % value selects in colormap
+                    if isempty(p.Results.colormap)
+                        colormap =  TrialDataUtilities.Colormaps.rocket();
+                    else
+                        colormap = p.REsults.colormap;
+                    end
+                    colormap_limits = p.Results.colormap_limits;
+                    
+                    colors = TrialDataUtilities.Color.evalColorMapAt(colormap, values, colormap_limits);
+                end
+            elseif ~isempty(p.Results.indicator)
+                indicator = p.Results.indicator;
+
+                if p.Results.exactIndicatorEdges
+                    % we adjust the pixel boundaries of the indicator to match the on and off times precisely
+                    % and then subsample indicator to draw the minimum number of patches
+                    uniformSpacing = false;
+                
+                    
+                    if indicator(1)
+                        on_idx = [1 find(diff(indicator) == 1)+1];
+                    else
+                        on_idx = find(diff(indicator) == 1)+1;
+                    end
+                    if indicator(end)
+                        off_idx = [find(diff(indicator) == -1) numel(indicator)];
+                    else
+                        off_idx = find(diff(indicator) == -1);
+                    end
+
+                    on_pos = axis_pos(on_idx);
+                    off_pos = axis_pos(off_idx);
+
+                    % single timepoint high? go until halfway to next sample
+                    single_high = on_idx == off_idx;
+                    dts = diff(axis_pos);
+                    half_steps = [dts/2; dts(end)/2];
+                    next_half_step = axis_pos(on_idx) + half_steps(on_idx);
+                    off_pos(single_high) = next_half_step(single_high);
+
+                    % used below
+                    pos_mat = [on_pos'; off_pos'];
+                    pos = pos_mat(:);
+
+                    pos_computed = true;
+                    indicator = false(numel(pos)-1, 1);
+                    indicator(1:2:end) = true;
+                end
+                   
+                if ~isempty(p.Results.color)
+                    colors = repmat(p.Results.color, numel(indicator), 1);
+                elseif ~isempty(p.Results.colormap)
+                    colormap = p.Results.colormap;
+                    if size(colormap, 1) == numel(indicator)
+                        colors = colormap;
+                    else
+                        colors = repmat(colormap(1, :), numel(indicator), 1);
+                    end
+                else
+                    error('Specify color or colormap with indicator');
+                end
+
+                alpha = zeros(size(indicator));
+                alpha(~indicator) = 0;
+                alpha(indicator) = p.Results.alpha(1);
+
+            else
+                error('Specify colors, values + (color or colormap), or indicator + (color or colormap)');
+            end
+            
+            if pos_computed
+                assert(size(colors, 2) == 3 && size(colors, 1) == numel(pos)-1, 'Values / colors must match numel(axis_pos)');
+                assert(numel(alpha) == numel(pos)-1, 'alpha must be scalar or have numel(axis_pos) values');
+            else
+                assert(size(colors, 2) == 3 && size(colors, 1) == numel(axis_pos), 'Values / colors must match numel(axis_pos)');
+                assert(numel(alpha) == numel(axis_pos), 'alpha must be scalar or have numel(axis_pos) values');
+            end
+            
+            useX = strcmp(orientation, "x");
+
+            if useX
+                % nVals x 3 --> 1 x nVals x 3
+                imdata = shiftdim(colors, -1);
+            else
+                % nVals x 3 --> nVals x 1 x 3
+                imdata = permute(colors, [1 3 2]);
+            end
+            
+            washolding = ishold(ax.axhDraw);
+
+            hold(ax.axhDraw, 'on');
+            if uniformSpacing
+                % spacing is uniform along axis_pos, so we use image()
+                
+                if useX
+                    yl = ylim(ax.axh);
+                    hstrip = image(axis_pos([1 end]), [yl(1) yl(1) + 1], imdata, ...
+                        'AlphaData', makerow(alpha), ...
+                        'YLimInclude', 'off', 'XLimInclude', 'off', 'Clipping', 'off', 'Parent', ax.axhDraw);
+                else
+                    xl = xlim(ax.axh);
+                    hstrip = image([xl(1) xl(1) + 1], axis_pos([1 end]), imdata, ...
+                        'AlphaData', makecol(alpha), ...
+                        'YLimInclude', 'off', 'XLimInclude', 'off', 'Clipping', 'off', 'Parent', ax.axhDraw);
+                end
+            else
+                % use patch. need left and right edges for each value
+                dt = diff(axis_pos);
+                if ~pos_computed
+                    pos = [axis_pos-[dt(1)/2; dt/2]; axis_pos(end)+dt(end)/2]; % nVals + 1
+                end
+
+                if useX
+                    yl = ylim(ax.axh);
+                    X = [pos(1:end-1) pos(2:end) pos(2:end) pos(1:end-1)]';
+                    Y = repmat([yl(1) yl(1) yl(1)+1 yl(1)+1], numel(pos)-1, 1)';
+                else
+                    xl = ylim(ax.axh);
+                    X = repmat([xl(1) xl(1) xl(1)+1 xl(1)+1], numel(pos)-1, 1)';
+                    Y = [pos(1:end-1) pos(2:end) pos(2:end) pos(1:end-1)]';
+                end
+                hstrip = patch(XData=X, YData=Y, FaceColor='flat', FaceVertexCData=colors, EdgeColor="none", ...
+                    FaceAlpha='flat', AlphaDataMapping='none', FaceVertexAlphaData=alpha, ...
+                    YLimInclude='off', XLimInclude='off', Clipping='off', Parent=ax.axhDraw);
+            end
+            AutoAxis.hideInLegend(hstrip);
+
+            % anchor height (or width) of strip
+            offset = p.Results.offset;
+            if useX
+                ai = AutoAxis.AnchorInfo(hstrip, PositionType.Height, ...
+                    [], @(ax, info) ax.markerHeight/3, 0, 'colorStrip height');
+                ax.addAnchor(ai);
+                if otherSide
+                    if isnan(offset)
+                        offset = 'axisPaddingBottom';
+                    end
+                    ai = AutoAxis.AnchorInfo(hstrip, PositionType.Bottom, ...
+                        ax.axh, PositionType.Top, offset, 'colorStrip below axis');
+                else
+                    if isnan(offset)
+                        offset = 'axisPaddingTop';
+                    end
+                    ai = AutoAxis.AnchorInfo(hstrip, PositionType.Top, ...
+                        ax.axh, PositionType.Bottom, offset, 'colorStrip above axis');
+                end
+                ax.addAnchor(ai);
+            else
+                ai = AutoAxis.AnchorInfo(hstrip, PositionType.Width, ...
+                    [], @(ax, info) ax.markerHeight/3, 0, 'markerX distribution rect width');
+                ax.addAnchor(ai);
+                if otherSide
+                    if isnan(offset)
+                        offset = 'axisPaddingRight';
+                    end
+                    ai = AutoAxis.AnchorInfo(hstrip, PositionType.Left, ...
+                        ax.axh, PositionType.Right, offset, 'colorStrip right of axis');
+                else
+                    if isnan(offset)
+                        offset = 'axisPaddingLeft';
+                    end
+                    ai = AutoAxis.AnchorInfo(hstrip, PositionType.Right, ...
+                        ax.axh, PositionType.Left, offset, 'colorStrip left of axis');
+                end
+                ax.addAnchor(ai);
+            end
+
+            if ~washolding
+                hold(ax.axhDraw, 'off');
+            end
+        end
         
         function hlist = addScaleBar(ax, varargin)
             % add rectangular scale bar with text label to either the x or
@@ -3702,6 +3937,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('textOffsetY', 0, @isscalar);
             p.addParameter('textOffsetX', 0, @isscalar);
             p.addParameter('addSpaceForScaleBar', true, @islogical);
+            p.addParameter('vcenterWithMarkers', true, @islogical);
             p.addParameter('horizontalAlignment', 'center', @ischar);
             p.addParameter('verticalAlignment', 'top', @ischar);
             p.addParameter('fontSize', ax.tickFontSize, @isscalar);
@@ -3767,14 +4003,26 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % intervalThickness). Marker tops sit at axisPaddingBottom from the
             % bottom of the axis. Note that this assumes markerDiameter >
             % intervalThickness.
-            if p.Results.addSpaceForScaleBar
-                offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.scaleBarThickness + ax.markerHeight/2;
+            if p.Results.vcenterWithMarkers
+                if p.Results.addSpaceForScaleBar
+                    offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.scaleBarThickness + ax.markerHeight/2;
+                else
+                    offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.markerHeight/2;
+                end
+                ai = AnchorInfo(hri, PositionType.VCenter, ax.axh, ...
+                    PositionType.Bottom, offsetBottom, ...
+                    sprintf('interval ''%s'' below axis (vcenter)', label));
             else
-                offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.markerHeight/2;
+                % simply align top
+                if p.Results.addSpaceForScaleBar
+                    offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.scaleBarThickness;
+                else
+                    offsetBottom = 'axisPaddingBottom';
+                end
+                ai = AnchorInfo(hri, PositionType.Top, ax.axh, ...
+                    PositionType.Bottom, offsetBottom, ...
+                    sprintf('interval ''%s'' below axis', label));
             end
-            ai = AnchorInfo(hri, PositionType.VCenter, ax.axh, ...
-                PositionType.Bottom, offsetBottom, ...
-                sprintf('interval ''%s'' below axis', label));
             ax.addAnchor(ai);
 
             % add custom or default y offset from bottom of rectangle
@@ -3835,12 +4083,23 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('labelOffset', ax.tickLabelOffset, @(x) true);
             p.addParameter('fontSize', ax.labelFontSize, @isscalar);
             p.addParameter('color', [0 0 0], @(x) ischar(x) || iscell(x) || ismatrix(x));
+            p.addParameter('labelColor', []);
             p.addParameter('leaveInPlace', false, @islogical);
             p.addParameter('otherSide', false, @isscalar); % if true, place top / right, false place at bottom / left
             p.addParameter('manualPos', 0, @isscalar); % position to place along non-orientation axis, when leaveInPlace is true
             p.addParameter('rotation', 0, @isscalar);
             p.addParameter('interpreter', 'none', @isstringlike);
             p.addParameter('showSpanLines', true, @islogical); % true to draw the line delineating the span, false for just the label
+
+            % extender ellipses - continuation dots is [pre post] and can have nSpan rows. If a single row is provided,
+            % the first span will get dots pre and the last span will get dots post.
+            p.addParameter('spanPadding', [0 0]);
+            p.addParameter('continuationDots', [false false]);
+            p.addParameter('dotsSpan', 0.5, @isscalar); % width of dots and spacing
+            p.addParameter('dotsCount', 3, @isscalar); % width of dots and spacing
+            p.addParameter('dotSpacingFrac', 0.5, @isscalar);
+            p.addParameter('includeDotsInSpan', true, @islogical); % shrink span to incorporate dots
+            
             p.CaseSensitive = false;
             p.parse(varargin{:});
             
@@ -3851,10 +4110,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             fontSize = p.Results.fontSize;
             lineWidth = ax.tickLineWidth;
             color = p.Results.color;
+            labelColor = p.Results.labelColor;
             leaveInPlace = p.Results.leaveInPlace;
             manualPos = p.Results.manualPos;
             otherSide = p.Results.otherSide;
-            
+
             % check sizes
             if isvector(span)
                 span = AutoAxisUtilities.makecol(span);
@@ -3865,12 +4125,51 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~isempty(label)
                 assert(numel(label) == nSpan, 'numel(label) must match size(span, 2)');
             end
+
+            % continuation dot-related computations
+            dots = p.Results.continuationDots;
+            if isscalar(dots)
+                dots = [dots dots];
+            end
+            if size(dots, 1) == 1 && nSpan > 1
+                dots_orig = dots;
+                dots = false(nSpan, 2);
+                dots(1, 1) = dots_orig(1);
+                dots(end, 2) = dots_orig(2);
+            end
+            assert(islogical(dots));
+            dotsPre = dots(:, 1);
+            dotsPost = dots(:, 2);
+            dotsSpan = p.Results.dotsSpan;
+            nDots = p.Results.dotsCount;
+            dotSpacingFrac = p.Results.dotSpacingFrac;
+            includeDotsInSpan = p.Results.includeDotsInSpan;
+            spacing_width = dotSpacingFrac * dotsSpan / nDots;
+            dot_width = (1-dotSpacingFrac) * dotsSpan / nDots;
+            
+            spanPadding = p.Results.spanPadding;
+            if isscalar(spanPadding)
+                spanPadding = [spanPadding spanPadding];
+            end
+            if size(spanPadding, 1) == 1 && nSpan > 1
+                spanPadding = repmat(spanPadding, nSpan, 1);
+            end
+            spanPaddingPre = spanPadding(:, 1);
+            spanPaddingPost = spanPadding(:, 2);
             
             if ischar(color)
                 color = {color};
             end
             if isscalar(color) && nSpan > 1
                 color = repmat(color, nSpan, 1);
+            end
+            if isempty(labelColor)
+                labelColor = color;
+            elseif ischar(labelColor)
+                labelColor = {labelColor};
+            end
+            if isscalar(labelColor) && nSpan > 1
+                labelColor = repmat(labelColor, nSpan, 1);
             end
             
             % generate line, ignore length here, we'll anchor that later
@@ -3887,6 +4186,25 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 else
                     va = repmat({'bottom'}, size(xtext));
                     offset = 'axisPaddingTop';
+                end
+
+                [xdots_pre, xdots_post] = deal(nan(2, nDots, nSpan));
+                [ydots_pre, ydots_post] = deal(ones(2, nDots, nSpan) * manualPos);
+                    
+                for i = 1:nSpan
+                    % one short line per dot
+                    if dotsPre(i)
+                        for iD = 1:nDots
+                            xdots_pre(1, iD, i) = span(1, i) + iD;
+                            xdots_pre(2, iD, i) = span(1, i) + iD + 1;
+                        end
+                    end
+                    if dotsPost(i)
+                        for iD = 1:nDots
+                            xdots_post(1, iD, i) = span(1, i) + iD;
+                            xdots_post(2, iD, i) = span(1, i) + iD + 1;
+                        end
+                    end
                 end
                 
             else
@@ -3910,6 +4228,25 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 else
                     offset = 'axisPaddingRight';
                 end
+
+                [ydots_pre, ydots_post] = deal(nan(2, nDots, nSpan));
+                [xdots_pre, xdots_post] = deal(ones(2, nDots, nSpan) * manualPos);
+                   
+                % one short line per dot
+                for i = 1:nSpan
+                    if dotsPre(i)
+                        for iD = 1:nDots
+                            ydots_pre(1, iD, i) = span(1, i) + iD;
+                            ydots_pre(2, iD, i) = span(1, i) + iD + 1;
+                        end
+                    end
+                    if dotsPost(i)
+                        for iD = 1:nDots
+                            ydots_post(1, iD, i) = span(2, i) + iD;
+                            ydots_post(2, iD, i) = span(2, i) + iD + 1;
+                        end
+                    end
+                end
             end
             if iscell(color)
                 nc = numel(color);
@@ -3929,7 +4266,44 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     end
                 end
                 AutoAxis.hideInLegend(hl);
-                set(hl, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
+
+                % draw continuation dots
+                if any(dotsPre)
+                    hdotsPre = gobjects(nDots, nSpan);
+                    for i = 1:nSpan
+                        if ~dotsPre(i)
+                            continue
+                        end
+                        hdotsPre(:, i) = line(xdots_pre(:, :, i), ydots_pre(:, :, i), 'LineWidth', lineWidth, 'Parent', ax.axhDraw);
+                        if iscell(color)
+                            set(hdotsPre(:, i), 'Color', color{wrap(i)});
+                        else
+                            set(hdotsPre(:, i), 'Color', color(wrap(i), :));
+                        end
+                    end
+                else
+                    hdotsPre = gobjects(0, 1);
+                end
+                if any(dotsPost)
+                    hdotsPost = gobjects(nDots, nSpan);
+                    for i = 1:nSpan
+                        if ~dotsPost(i)
+                            continue
+                        end
+                        hdotsPost(:, i) = line(xdots_post(:, :, i), ydots_post(:, :, i), 'LineWidth', lineWidth, 'Parent', ax.axhDraw);
+                        if iscell(color)
+                            set(hdotsPost(:, i), 'Color', color{wrap(i)});
+                        else
+                            set(hdotsPost(:, i), 'Color', color(wrap(i), :));
+                        end
+                    end
+                else
+                    hdotsPost = gobjects(0, 1);
+                end
+
+                flatten = @(v) v(:);
+                hl_with_dots = [hl; flatten(hdotsPre(:, dotsPre)); flatten(hdotsPost(:, dotsPost))];
+                set(hl_with_dots, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
             end
             
             ht = AutoAxis.allocateHandleVector(nSpan);
@@ -3942,11 +4316,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 ht(i) = text(double(xtext(i)), double(ytext(i)), label{i}, ...
                     'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
                     'Parent', ax.axhDraw, 'Interpreter', p.Results.interpreter, 'BackgroundColor', 'none', ...
-                    'FontSize', fontSize, 'Rotation', p.Results.rotation);
-                if iscell(color)
-                    set(ht(i), 'Color', color{wrap(i)});
+                    'FontSize', fontSize, 'Rotation', p.Results.rotation, 'Margin', 0.001);
+                if iscell(labelColor)
+                    set(ht(i), 'Color', labelColor{wrap(i)});
                 else
-                    set(ht(i), 'Color', color(wrap(i), :));
+                    set(ht(i), 'Color', labelColor(wrap(i), :));
                 end
             end
             ht = ht(keep);
@@ -3958,27 +4332,131 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     set(ht, 'EdgeColor', 'r');
                 end
             end
+
+            % build anchors for dots 
+            if any(dotsPre)
+                if useX
+                    pos1 = PositionType.Right;
+                    pos2 = PositionType.Left;
+                    posSize = PositionType.Width;
+                    descPos = 'xLabeledSpan dotsPre left of main';
+                    descSize = 'xBubbleSpan dotsPre width';
+                else
+                    pos1 = PositionType.Top;
+                    pos2 = PositionType.Bottom;
+                    posSize = PositionType.Height;
+                    descPos = 'yBubbleSpan dotsPre below main';
+                    descSize = 'yBubbleSpan dotsPre height';
+                end
+                for i = 1:nSpan
+                    if dotsPre(i)
+                        for iDot = 1:nDots
+                            % anchor right edge at offset
+                            this_offset = (iDot-1) * dotsSpan / nDots + spacing_width;
+                            ai = AnchorInfo(hdotsPre(iDot, i), pos1, hl(i), pos2, this_offset, descPos);
+                            ax.addAnchor(ai);
+    
+                            ai = AnchorInfo(hdotsPre(iDot, i), posSize, [], dot_width, 0, descSize);
+                            ax.addAnchor(ai);
+                        end
+                    end
+                end
+            end
+            if any(dotsPost)
+                if useX
+                    pos1 = PositionType.Left;
+                    pos2 = PositionType.Right;
+                    posSize = PositionType.Width;
+                    descPos = 'xLabeledSpan dotsPost left of main';
+                    descSize = 'xLabeledSpan dotsPost width';
+                else
+                    pos1 = PositionType.Bottom;
+                    pos2 = PositionType.Top;
+                    posSize = PositionType.Height;
+                    descPos = 'yLabeledSpan dotsPost above main';
+                    descSize = 'yLabeledSpan dotsPost height';
+                end
+                for i = 1:nSpan
+                    if dotsPost(i)
+                        for iDot = 1:nDots
+                            % anchor right edge at offset
+                            this_offset = (iDot-1) * dotsSpan / nDots + spacing_width;
+                            ai = AnchorInfo(hdotsPost(iDot, i), pos1, hl(i), pos2, this_offset, descPos);
+                            ax.addAnchor(ai);
+    
+                            ai = AnchorInfo(hdotsPost(iDot, i), posSize, [], dot_width, 0, descSize);
+                            ax.addAnchor(ai);
+                        end
+                    end
+                end
+            end
+
             
             if p.Results.showSpanLines
                 if ~leaveInPlace
-                    % build anchor for lines
+                    % build anchor for lines in non-spanned dimensions
                     if useX
                         if ~otherSide
-                            ai = AnchorInfo(hl, PositionType.Top, ax.axh, ...
+                            ai = AnchorInfo(hl_with_dots, PositionType.Top, ax.axh, ...
                                 PositionType.Bottom, offset, 'xLabeledSpan below axis');
                         else
-                            ai = AnchorInfo(hl, PositionType.Bottom, ax.axh, ...
+                            ai = AnchorInfo(hl_with_dots, PositionType.Bottom, ax.axh, ...
                                 PositionType.Top, offset, 'xLabeledSpan above axis');
                         end
                         ax.addAnchor(ai);
                     else
                         if ~otherSide
-                            ai = AnchorInfo(hl, PositionType.Right, ...
+                            ai = AnchorInfo(hl_with_dots, PositionType.Right, ...
                                 ax.axh, PositionType.Left, offset, 'yLabeledSpan left of axis');
                         else
-                            ai = AnchorInfo(hl, PositionType.Left, ...
+                            ai = AnchorInfo(hl_with_dots, PositionType.Left, ...
                                 ax.axh, PositionType.Right, offset, 'yLabeledSpan right of axis');
                         end
+                        ax.addAnchor(ai);
+                    end
+                end
+
+                % build anchors for rectangles in spanned dimension to accommodate padding and dots
+                if useX
+                    % position left and right sides
+                    for i = 1:nSpan
+                        this_offset = spanPaddingPre(i);
+                        if dotsPre(i) && includeDotsInSpan
+                            this_offset = this_offset + dotsSpan;
+                        end
+    
+                        ai = AnchorInfo(hl(i), PositionType.Left, span(1, i), PositionType.Literal, this_offset, 'xLabeledSpan left with padding + dots');
+                        ai.translateDontScale = false;
+                        ax.addAnchor(ai);
+                        
+                        this_offset = spanPaddingPost(i);
+                        if dotsPost(i) && includeDotsInSpan
+                            this_offset = this_offset + dotsSpan;
+                        end
+    
+                        ai = AnchorInfo(hl(i), PositionType.Right, span(2, i), PositionType.Literal, -this_offset, 'xLabeledSpan right with padding + dots');
+                        ai.translateDontScale = false;
+                        ax.addAnchor(ai);
+                    end
+                else
+                    % position bottom and top
+                    for i = 1:nSpan
+                        this_offset = spanPaddingPre(i);
+                        if dotsPre(i) && includeDotsInSpan
+                            this_offset = this_offset + dotsSpan;
+                        end
+    
+                        ai = AnchorInfo(hl(i), PositionType.Bottom, span(1, i), PositionType.Literal, this_offset, 'yLabeledSpan bottom with padding + dots');
+                        ai.translateDontScale = false;
+                        ax.addAnchor(ai);
+                        
+                        this_offset = spanPaddingPost(i);
+                        if dotsPost(i) && includeDotsInSpan
+                            this_offset = this_offset + dotsSpan;
+                        end
+    
+                        ai = AnchorInfo(hl(i), PositionType.Top, span(2, i), PositionType.Literal, -this_offset, 'yLabeledSpan top with padding + dots');
+                        ai.translateDontScale = false;
                         ax.addAnchor(ai);
                     end
                 end
@@ -3988,22 +4466,22 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     if useX
                         if ~otherSide
                             ai = AnchorInfo(ht, PositionType.Top, ...
-                                hl, PositionType.Bottom, labelOffset, ...
+                                hl_with_dots, PositionType.Bottom, labelOffset, ...
                                 'xLabeledSpan below ticks');
                         else
                             ai = AnchorInfo(ht, PositionType.Bottom, ...
-                            hl, PositionType.Top, labelOffset, ...
+                            hl_with_dots, PositionType.Top, labelOffset, ...
                             'xLabeledSpan above ticks');
                         end
                         ax.addAnchor(ai);
                     else
                         if ~otherSide
                             ai = AnchorInfo(ht, PositionType.Right, ...
-                                hl, PositionType.Left, labelOffset, ...
+                                hl_with_dots, PositionType.Left, labelOffset, ...
                                 'yLabeledSpan left of ticks');
                         else
                             ai = AnchorInfo(ht, PositionType.Left, ...
-                            hl, PositionType.Right, labelOffset, ...
+                            hl_with_dots, PositionType.Right, labelOffset, ...
                             'yLabeledSpan left of ticks');
                         end
                         ax.addAnchor(ai);
@@ -4034,8 +4512,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             ht = AutoAxisUtilities.makecol(ht);
             if p.Results.showSpanLines
-                hl = AutoAxisUtilities.makecol(hl);
-                hlist = [hl; ht];
+                hl_with_dots = AutoAxisUtilities.makecol(hl_with_dots);
+                hlist = [hl_with_dots; ht];
             else
                 hlist = ht;
             end
@@ -4061,6 +4539,479 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % put in top layer
             ax.addHandlesToCollection('topLayer', hlist);
+        end 
+
+        function [hl, ht] = addLabeledSpanBubbles(ax, varargin)
+            % very similar to addLabeledSpans except uses rounded rectangles and adds some new options
+            %  - continuation ellipses at the edges
+            %  - padding relative to endpoints to create space between adjacent bubbles
+            % 'span' is 2 x N matrix
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            
+            p = inputParser();
+            p.addRequired('which', @ischar);
+            p.addParameter('span', [], @ismatrix); % 2 X N matrix of [ start; stop ] limits
+            p.addParameter('label', {}, @isstringlike);
+            p.addParameter('labelOffset', 'tickLabelOffset', @(x) true);
+            p.addParameter('fontSize', ax.labelFontSize, @isscalar);
+            p.addParameter('color', [0 0 0], @(x) ischar(x) || iscell(x) || ismatrix(x));
+            p.addParameter('edgeColor', "none", @(x) ischar(x) || iscell(x) || ismatrix(x));
+            p.addParameter('textColor', [], @(x) ischar(x) || iscell(x) || ismatrix(x));
+            p.addParameter('addAnchors', false, @islogical);
+            p.addParameter('otherSide', false, @isscalar); % if true, place top / right, false place at bottom / left
+            p.addParameter('manualPos', 0, @isscalar); % position to place along non-orientation axis, when leaveInPlace is true
+            p.addParameter('rotation', 0, @isscalar);
+            p.addParameter('interpreter', 'none', @isstringlike);
+            
+            p.addParameter('bubblePadding', [0 0]);
+            p.addParameter('continuationDots', [false false], @isvector);
+            p.addParameter('dotsSpan', 0.5, @isscalar); % width of dots and spacing
+            p.addParameter('includeDotsInSpan', true, @islogical); % shrink span to incorporate dots
+            p.addParameter('dotsCount', 3, @isscalar); % width of dots and spacing
+            p.addParameter('dotSpacingFrac', 0.5, @isscalar);
+            p.addParameter('curvature', [0.1 0.1], @isvector);
+            p.addParameter('height', 0.3, @isscalar);
+            
+            p.CaseSensitive = false;
+            p.parse(varargin{:});
+            
+            useX = strcmp(p.Results.which, 'x');
+            span = p.Results.span;
+            label = string(p.Results.label);
+            labelOffset = p.Results.labelOffset;
+            fontSize = p.Results.fontSize;
+            color = p.Results.color;
+            edgeColor = p.Results.edgeColor;
+            textColor = p.Results.textColor;
+            if isempty(textColor)
+                textColor = color;
+            end
+            manualPos = p.Results.manualPos;
+            otherSide = p.Results.otherSide;
+
+            % check sizes
+            if isvector(span)
+                span = AutoAxisUtilities.makecol(span);
+            end
+            nSpan = size(span, 2);
+            assert(size(span, 1) == 2, 'span must be 2 x N matrix of limits');
+            label = string(label);
+            if ~isempty(label)
+                assert(numel(label) == nSpan, 'numel(label) must match size(span, 2)');
+            end
+
+            bubblePadding = p.Results.bubblePadding;
+            if isscalar(bubblePadding)
+                bubblePadding = [bubblePadding bubblePadding];
+            end
+            if size(bubblePadding, 1) == 1 && nSpan > 1
+                bubblePadding = repmat(bubblePadding, nSpan, 1);
+            end
+            bubblePaddingPre = bubblePadding(:, 1);
+            bubblePaddingPost = bubblePadding(:, 2);
+            
+            % dot related properties
+            dots = p.Results.continuationDots;
+            if isscalar(dots)
+                dots = [dots dots];
+            end
+            if size(dots, 1) == 1 && nSpan > 1
+                dots_orig = dots;
+                dots = false(nSpan, 2);
+                dots(1, 1) = dots_orig(1);
+                dots(end, 2) = dots_orig(2);
+            end
+            assert(islogical(dots));
+            dotsPre = dots(:, 1);
+            dotsPost = dots(:, 2);
+            dotsSpan = p.Results.dotsSpan;
+            nDots = p.Results.dotsCount;
+            dotSpacingFrac = p.Results.dotSpacingFrac;
+            includeDotsInSpan = p.Results.includeDotsInSpan;
+            curvature = p.Results.curvature;
+            height = p.Results.height;
+
+            if ischar(color)
+                color = {color};
+            end
+            if isscalar(color) && nSpan > 1
+                color = repmat(color, nSpan, 1);
+            end
+            if ischar(edgeColor)
+                edgeColor = {edgeColor};
+            end
+            if ischar(textColor)
+                textColor = {textColor};
+            end
+            
+            % generate line, ignore length here, we'll anchor that later
+            if useX
+                % x axis lines
+                xv = span(1, :);
+                wv = span(2, :) - span(1, :);
+                yv = ones(1, nSpan)*manualPos;
+                hv = ones(1, nSpan)*height;
+                if ax.yReverse
+                    [yv, hv] = swap(hv, yv);
+                end
+                
+                xtext = mean(span, 1);
+                ytext = zeros(size(xtext));
+                ha = repmat({'center'}, size(xtext));
+                if ~otherSide
+                    va = repmat({'top'}, size(xtext));
+                    offset = 'axisPaddingBottom';
+                else
+                    va = repmat({'bottom'}, size(xtext));
+                    offset = 'axisPaddingTop';
+                end
+                
+            else
+                % y axis lines
+                yv = span(1, :);
+                hv = span(2, :) - span(1, :);
+                xv = ones(1, nSpan)*manualPos;
+                wv = ones(1, nSpan)*height;
+                if ax.yReverse
+                    [xv, wv] = swap(xv, wv);
+                end
+                ytext = mean(span, 1);
+                xtext = zeros(size(ytext));
+                if abs(p.Results.rotation) < 20
+                    if ~otherSide
+                        ha = repmat({'right'}, size(xtext));
+                    else
+                        ha = repmat({'left'}, size(xtext));
+                    end
+                else
+                    ha = repmat({'center'}, size(xtext));
+                end
+                va = repmat({'middle'}, size(xtext));
+                if ~otherSide
+                    offset = 'axisPaddingLeft';
+                else
+                    offset = 'axisPaddingRight';
+                end
+            end
+            if iscell(color)
+                nc = numel(color);
+            else
+                nc = size(color, 1);
+            end
+            wrap = @(i) mod(i-1, nc) + 1;
+            if iscell(edgeColor)
+                nc_edge = numel(edgeColor);
+            else
+                nc_edge = size(edgeColor, 1);
+            end
+            wrap_edge = @(i) mod(i-1, nc_edge) + 1;
+            if iscell(textColor)
+                nc_text = numel(textColor);
+            else
+                nc_text = size(textColor, 1);
+            end
+            wrap_text = @(i) mod(i-1, nc_text) + 1;
+            
+            hr = gobjects(nSpan, 1);
+            if any(dotsPre)
+                hdot_pre = gobjects(nSpan, nDots);
+            else
+                hdot_pre = gobjects(0, 1);
+            end
+            if any(dotsPost)
+                hdot_post = gobjects(nSpan, nDots);
+            else
+                hdot_post = gobjects(0, 1);
+            end
+            
+            spacing_width = dotSpacingFrac * dotsSpan / nDots;
+            dot_width = (1-dotSpacingFrac) * dotsSpan / nDots;
+            
+            for i = 1:nSpan
+                pos = [xv(i) yv(i) wv(i) hv(i)];
+                if iscell(color)
+                    this_color = color{wrap(i)};
+                else
+                    this_color = color(wrap(i), :);
+                end
+                if iscell(edgeColor)
+                    this_edge_color = edgeColor{wrap_edge(i)};
+                else
+                    this_edge_color = edgeColor(wrap_edge(i), :);
+                end
+                hr(i) = rectangle('Position', pos, 'Curvature', curvature, 'FaceColor', this_color, ...
+                    'EdgeColor', this_edge_color, 'Parent', ax.axhDraw);
+
+                if dotsPre(i)
+                    % build dots before
+                    if useX
+                        for iDot = 1:nDots
+                            this_offset = iDot * dotsSpan / nDots;
+                            pos = [xv(i) - this_offset, yv(i), dot_width, hv(i)];
+                            hdot_pre(i, iDot) = rectangle('Position', pos, 'Curvature', curvature, 'FaceColor', this_color, ...
+                                'EdgeColor', this_edge_color, 'Parent', ax.axhDraw);
+                        end
+                    else
+                        for iDot = 1:nDots
+                            this_offset = iDot * dotsSpan / nDots;
+                            pos = [xv(i), yv(i)-this_offset, wv(i), dot_width];
+                            hdot_pre(i, iDot) = rectangle('Position', pos, 'Curvature', curvature, 'FaceColor', this_color, ...
+                                'EdgeColor', this_edge_color, 'Parent', ax.axhDraw);
+                        end
+                    end
+                end
+                if dotsPost(i)
+                    % build dots before
+                    if useX
+                        for iDot = 1:nDots
+                            this_offset = iDot * dotsSpan / nDots;
+                            pos = [xv(i) + wv(i) + this_offset, yv(i), dot_width, hv(i)];
+                            hdot_post(i, iDot) = rectangle('Position', pos, 'Curvature', curvature, 'FaceColor', this_color, ...
+                                'EdgeColor', this_edge_color, 'Parent', ax.axhDraw);
+                        end
+                    else
+                        for iDot = 1:nDots
+                            this_offset = iDot * dotsSpan / nDots;
+                            pos = [xv(i), yv(i) + hv(i) + this_offset, wv(i), dot_width];
+                            hdot_post(i, iDot) = rectangle('Position', pos, 'Curvature', curvature, 'FaceColor', this_color, ...
+                                'EdgeColor', this_edge_color, 'Parent', ax.axhDraw);
+                        end
+                    end
+                end
+                hold on;
+            end
+
+            flatten = @(x) x(:);
+            hrect_all = cat(1, hr, flatten(hdot_pre(dotsPre, :)), flatten(hdot_post(dotsPost, :)));
+            AutoAxis.hideInLegend(hrect_all);
+            set(hrect_all, 'Clipping', 'off', 'YLimInclude', 'off', 'XLimInclude', 'off');
+            
+            % build labels
+            ht = AutoAxis.allocateHandleVector(nSpan);
+            keep = AutoAxisUtilities.truevec(nSpan);
+            for i = 1:nSpan
+                if isempty(label) || isempty(label{i})
+                    keep(i) = false;
+                    continue;
+                end
+                ht(i) = text(double(xtext(i)), double(ytext(i)), label{i}, ...
+                    'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
+                    'Parent', ax.axhDraw, 'Interpreter', p.Results.interpreter, 'BackgroundColor', 'none', ...
+                    'FontSize', fontSize, 'Rotation', p.Results.rotation, 'Margin', 0.001);
+                if iscell(textColor)
+                    set(ht(i), 'Color', textColor{wrap_text(i)});
+                else
+                    set(ht(i), 'Color', textColor(wrap_text(i), :));
+                end
+            end
+            ht = ht(keep);
+            
+            if ~isempty(ht)
+                set(ht, 'Clipping', 'off', 'Margin', 0.01);
+                
+                if ax.debug
+                    set(ht, 'EdgeColor', 'r');
+                end
+            end
+            
+            % build anchors for rectangles in non-spanned dimension
+            if useX
+                % height
+                ai = AnchorInfo(hrect_all, PositionType.Height, [], height, 0, 'xBubbleSpan height');
+                ax.addAnchor(ai);
+
+                if ~otherSide
+                    ai = AnchorInfo(hrect_all, PositionType.Top, ax.axh, ...
+                        PositionType.Bottom, offset, 'xBubbleSpan below axis');
+                else
+                    ai = AnchorInfo(hrect_all, PositionType.Bottom, ax.axh, ...
+                        PositionType.Top, offset, 'xBubbleSpan above axis');
+                end
+                ax.addAnchor(ai);
+            else
+                % width
+                ai = AnchorInfo(hrect_all, PositionType.Width, [], height, 0, 'yBubbleSpan width');
+                ax.addAnchor(ai);
+
+                if ~otherSide
+                    ai = AnchorInfo(hrect_all, PositionType.Right, ...
+                        ax.axh, PositionType.Left, offset, 'yBubbleSpan left of axis');
+                else
+                    ai = AnchorInfo(hrect_all, PositionType.Left, ...
+                        ax.axh, PositionType.Right, offset, 'yBubbleSpan right of axis');
+                end
+                ax.addAnchor(ai);
+            end
+
+            % build anchors for rectangles in spanned dimension to accommodate padding and dots
+            if useX
+                % position left and right sides
+                for i = 1:nSpan
+                    this_offset = bubblePaddingPre(i);
+                    if dotsPre(i) && includeDotsInSpan
+                        this_offset = this_offset + dotsSpan;
+                    end
+
+                    ai = AnchorInfo(hr(i), PositionType.Left, span(1, i), PositionType.Literal, this_offset, 'xBubbleSpan left with padding + dots');
+                    ai.translateDontScale = false;
+                    ax.addAnchor(ai);
+                    
+                    this_offset = bubblePaddingPost(i);
+                    if dotsPost(i) && includeDotsInSpan
+                        this_offset = this_offset + dotsSpan;
+                    end
+
+                    ai = AnchorInfo(hr(i), PositionType.Right, span(2, i), PositionType.Literal, -this_offset, 'xBubbleSpan right with padding + dots');
+                    ai.translateDontScale = false;
+                    ax.addAnchor(ai);
+                end
+            else
+                % position bottom and top
+                for i = 1:nSpan
+                    this_offset = bubblePaddingPre(i);
+                    if dotsPre(i) && includeDotsInSpan
+                        this_offset = this_offset + dotsSpan;
+                    end
+
+                    ai = AnchorInfo(hr(i), PositionType.Bottom, span(1, i), PositionType.Literal, this_offset, 'yBubbleSpan bottom with padding + dots');
+                    ai.translateDontScale = false;
+                    ax.addAnchor(ai);
+                    
+                    this_offset = bubblePaddingPost(i);
+                    if dotsPost(i) && includeDotsInSpan
+                        this_offset = this_offset + dotsSpan;
+                    end
+
+                    ai = AnchorInfo(hr(i), PositionType.Top, span(2, i), PositionType.Literal, -this_offset, 'yBubbleSpan top with padding + dots');
+                    ai.translateDontScale = false;
+                    ax.addAnchor(ai);
+                end
+            end
+
+            % build anchors for dots 
+            if any(dotsPre)
+                if useX
+                    pos1 = PositionType.Right;
+                    pos2 = PositionType.Left;
+                    posSize = PositionType.Width;
+                    descPos = 'xBubbleSpan dotsPre left of main';
+                    descSize = 'xBubbleSpan dotsPre width';
+                else
+                    pos1 = PositionType.Top;
+                    pos2 = PositionType.Bottom;
+                    posSize = PositionType.Height;
+                    descPos = 'yBubbleSpan dotsPre below main';
+                    descSize = 'yBubbleSpan dotsPre height';
+                end
+                for i = 1:nSpan
+                    if dotsPre(i)
+                        for iDot = 1:nDots
+                            % anchor right edge at offset
+                            this_offset = (iDot-1) * dotsSpan / nDots + spacing_width;
+                            ai = AnchorInfo(hdot_pre(i, iDot), pos1, hr(i), pos2, this_offset, descPos);
+                            ax.addAnchor(ai);
+    
+                            ai = AnchorInfo(hdot_pre(i, iDot), posSize, [], dot_width, 0, descSize);
+                            ax.addAnchor(ai);
+                        end
+                    end
+                end
+            end
+            if any(dotsPost)
+                if useX
+                    pos1 = PositionType.Left;
+                    pos2 = PositionType.Right;
+                    posSize = PositionType.Width;
+                    descPos = 'xBubbleSpan dotsPost left of main';
+                    descSize = 'xBubbleSpan dotsPost width';
+                else
+                    pos1 = PositionType.Bottom;
+                    pos2 = PositionType.Top;
+                    posSize = PositionType.Height;
+                    descPos = 'yBubbleSpan dotsPost above main';
+                    descSize = 'yBubbleSpan dotsPost height';
+                end
+                for i = 1:nSpan
+                    if dotsPost(i)
+                        for iDot = 1:nDots
+                            % anchor right edge at offset
+                            offset = (iDot-1) * dotsSpan / nDots + spacing_width;
+                            ai = AnchorInfo(hdot_post(i, iDot), pos1, hr(i), pos2, offset, descPos);
+                            ax.addAnchor(ai);
+    
+                            ai = AnchorInfo(hdot_post(i, iDot), posSize, [], dot_width, 0, descSize);
+                            ax.addAnchor(ai);
+                        end
+                    end
+                end
+            end
+
+            % build anchors for labels
+            if ~isempty(ht)
+                % anchor labels to lines (always)
+                if useX
+                    if ~otherSide
+                        ai = AnchorInfo(ht, PositionType.Top, ...
+                            hr, PositionType.Bottom, labelOffset, ...
+                            'xBubbleSpan label below');
+                    else
+                        ai = AnchorInfo(ht, PositionType.Bottom, ...
+                        hr, PositionType.Top, labelOffset, ...
+                        'xBubbleSpan label above');
+                    end
+                    ax.addAnchor(ai);
+
+                    ai = AnchorInfo(ht, PositionType.HCenter, ...
+                            hr, PositionType.HCenter, 0, ...
+                            'xBubbleSpan label hcenter');
+                    ax.addAnchor(ai);
+                else
+                    if ~otherSide
+                        ai = AnchorInfo(ht, PositionType.Right, ...
+                            hr, PositionType.Left, labelOffset, ...
+                            'yBubbleSpan label left');
+                    else
+                        ai = AnchorInfo(ht, PositionType.Left, ...
+                        hr, PositionType.Right, labelOffset, ...
+                        'yBubbleSpan label right');
+                    end
+                    ax.addAnchor(ai);
+
+                    ai = AnchorInfo(ht, PositionType.VCenter, ...
+                            hr, PositionType.VCenter, 0, ...
+                            'xBubbleSpan label vcenter');
+                    ax.addAnchor(ai);
+                end
+            end
+            
+            ht = AutoAxisUtilities.makecol(ht);
+            hr = AutoAxisUtilities.makecol(hr);
+            hlist = [hr; ht];
+            
+            % add handles to handle collections
+            if useX
+                if ~otherSide
+                    ax.addHandlesToCollection('belowX', hlist);
+                else
+                    ax.addHandlesToCollection('aboveX', hlist);
+                end
+            else
+                if ~otherSide
+                    ax.addHandlesToCollection('leftY', hlist);
+                else
+                    ax.addHandlesToCollection('rightY', hlist);
+                end
+            end
+            
+            % list as generated content
+            ax.addHandlesToCollection('generated', hlist);
+            
+            % put in top layer
+            ax.addHandlesToCollection('topLayer', hlist);
+
+            function [b, a] = swap(a, b)
+            end
         end 
         
         function hvec = addColoredLabels(ax, labels, colors, varargin)
@@ -4159,7 +5110,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 
                 
                 hvec(i) = text(x, y, label, 'FontSize', p.Results.fontSize, 'FontWeight', p.Results.fontWeight, ...
-                    'Color', c, 'Margin', 0.01, 'HorizontalAlignment', horzAlign, ...
+                    'Color', c, 'Margin', 0.001, 'HorizontalAlignment', horzAlign, ...
                     'VerticalAlignment', vertAlign, 'Interpreter', interpreter);
                 if isempty(p.Results.fillColor) || (ischar(p.Results.fillColor) && strcmp(p.Results.fillColor, 'none'))
                     set(hvec(i), 'BackgroundColor', 'none');
@@ -4208,10 +5159,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % anchor horizontally to axis
                 if outsideX
                     ai = AnchorInfo(hvec, posX.flip(), ax.axh, posX, offsetX, ...
-                        sprintf('colorLabels to axis %s', char(posX), char(posX)));
+                        sprintf('colorLabels %s to axis %s', char(posX.flip()), char(posX)));
                 else
                     ai = AnchorInfo(hvec, posX, ax.axh, posX, offsetX, ...
-                        sprintf('colorLabels to axis %s', char(posX), char(posX)));
+                        sprintf('colorLabels %s to axis %s', char(posX), char(posX)));
                 end
                 ax.addAnchor(ai);
             else
@@ -4238,13 +5189,23 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 
                 % anchor group to axis
-                ai = AnchorInfo(hvec, posX, ax.axh, posX, offsetX, ...
-                    sprintf('colorLabel group %s to axis %s', char(posY), char(posX)));
+                if outsideX
+                    ai = AnchorInfo(hvec, posX.flip(), ax.axh, posX, offsetX, ...
+                        sprintf('colorLabel group %s to outside axis %s', char(posY.flip()), char(posX)));
+                else
+                    ai = AnchorInfo(hvec, posX, ax.axh, posX, offsetX, ...
+                        sprintf('colorLabel group %s to axis %s', char(posY), char(posX)));
+                end
                 ax.addAnchor(ai);
                 
                 % anchor vertically to axis
-                ai = AnchorInfo(hvec, posY, ax.axh, posY, offsetY, ...
-                    sprintf('colorLabels to axis %s', char(posY), char(posY)));
+                if outsideY
+                    ai = AnchorInfo(hvec, posY.flip(), ax.axh, posY, offsetY, ...
+                        sprintf('colorLabels %s to axis %s', char(posY), char(posY)));
+                else
+                    ai = AnchorInfo(hvec, posY, ax.axh, posY, offsetY, ...
+                        sprintf('colorLabels %s to axis %s', char(posY), char(posY)));
+                end
                 ax.addAnchor(ai);       
             end
             
@@ -4649,13 +5610,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('labelLow', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelBelow', '', @isstringlike); % used to describe the lower limit
             p.addParameter('labelBelowAlignTicks', true, @islogical); % keep in line with ticks, or align left edge of colorbar
+            p.addParameter('labelBelowAppendUnits', false, @islogical);
             p.addParameter('labelHigh', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelAbove', '', @isstringlike); % used to describe the upper limit; 
             p.addParameter('labelAboveAlignTicks', true, @islogical); % keep in line with ticks, or align left edge of colorbar
+            p.addParameter('labelAboveAppendUnits', false, @islogical);
             p.addParameter('labelCenter', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelCenterRotation', 0, @isscalar);
             p.addParameter('labelCenterNextLine', '', @(x) ischar(x) || isscalar(x));
             p.addParameter('labelCenterNextLineOffset', 0, @(x) true);
+            p.addParameter('labelCenterAppendUnits', false, @islogical);
             p.addParameter('backgroundColor', 'none', @ischar);
             p.addParameter('backgroundAlpha', 1, @isscalar);
             p.addParameter('padding', 'tickLabelOffset', @(x) true);
@@ -4927,41 +5891,76 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %                 end
             end
 
-            if isempty(p.Results.labelHigh)
+            labelHigh = toString(p.Results.labelBelow);
+            if labelHigh == ""
+                % make limits
                 if p.Results.labelLimits
                     if ~strcmp(units, "") && p.Results.limitHighAppendUnits
                         labelHigh = sprintf(labelFormatWithUnits, climits(2), units);
                     else
-                        labelHigh = sprintf(labelFormat, climits(2));
+                        labelHigh = sprintf(labelFormat, climits(2)); % no units
                     end
-                else
-                    labelHigh = '';
+                elseif p.Results.limitHighAppendUnits
+                    labelHigh = units;
                 end
-            else
-                labelHigh = p.Results.labelHigh;
+            elseif p.Results.limitHighAppendUnits
+                labelHigh = sprintf("%s %s", labelHigh, units);
             end
-            
-            if isempty(p.Results.labelLow)
+
+            labelLow = toString(p.Results.labelLow);
+            if labelLow == ""
+                % make limits
                 if p.Results.labelLimits
                     if ~strcmp(units, "") && p.Results.limitLowAppendUnits
                         labelLow = sprintf(labelFormatWithUnits, climits(1), units);
                     else
                         labelLow = sprintf(labelFormat, climits(1)); % no units
                     end
-                else
-                    labelLow = '';
+                elseif p.Results.limitLowAppendUnits
+                    labelLow = units;
                 end
-            else
-                labelLow = p.Results.labelLow;
+            elseif p.Results.limitLowAppendUnits
+                labelLow = sprintf("%s %s", labelLow, units);
+            end
+
+            labelBelow = toString(p.Results.labelBelow);
+            if p.Results.labelBelowAppendUnits
+                if labelBelow ~= ""
+                    labelBelow = sprintf("%s %s", labelBelow, units);
+                else
+                    % no label center so just units with no space
+                    labelBelow = units;
+                end
+            end
+
+            labelCenter = toString(p.Results.labelCenter);
+            if p.Results.labelCenterAppendUnits
+                if labelCenter ~= ""
+                    labelCenter = sprintf("%s %s", labelCenter, units);
+                else
+                    % no label center so just units with no space
+                    labelCenter = units;
+                end
+            end
+
+            labelAbove = toString(p.Results.labelAbove);
+            if p.Results.labelAboveAppendUnits
+                if labelAbove ~= ""
+                    labelAbove = sprintf("%s %s", labelAbove, units);
+                else
+                    % no label center so just units with no space
+                    labelAbove = units;
+                end
             end
             
             function x = toString(x) 
                 if isstring(x), return; end
                 if ~ischar(x), x = num2str(x); end
+                x = string(x);
             end
             
-            if ~isempty(labelLow)
-                hl = text(0, 0, toString(labelLow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
+            if labelLow ~= ""
+                hl = text(0, 0, labelLow, 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                 
                 if isVertical
                     ax.anchorRightBottomAlign(hl, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelLow');
@@ -4971,11 +5970,21 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             else
                 hl = [];
             end
-            
-            labelBelow = p.Results.labelBelow;
-            if ~isempty(labelBelow)
+
+            if labelHigh ~= ""
+                hr = text(0, 0, labelHigh, 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
+                if isVertical
+                    ax.anchorRightTopAlign(hr, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar label');
+                else
+                    ax.anchorBelowRightAlign(hr, himg, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar label');
+                end
+            else
+                hr = []; 
+            end
+
+            if labelBelow ~= ""
                 % anchor labelBelow directly beneath label low
-                hbl = text(0, 0, toString(labelBelow), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
+                hbl = text(0, 0, labelBelow, 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
                 if p.Results.labelBelowAlignTicks || ~isVertical
                     if isVertical
                         if ~isempty(hl)
@@ -4998,8 +6007,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 hbl = [];
             end
             
-            if ~isempty(p.Results.labelCenter)
-                hc = text(0, 0, toString(p.Results.labelCenter), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelCenterRotation, 'Margin', 0.01);
+            if labelCenter ~= ""
+                hc = text(0, 0, labelCenter, 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelCenterRotation, 'Margin', 0.01);
                 if isVertical
                     ax.anchorRightCenterAlign(hc, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelCenter');
                 else
@@ -5008,22 +6017,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             else
                 hc = [];
             end
-
-            if ~isempty(labelHigh)
-                hr = text(0, 0, toString(labelHigh), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
-                if isVertical
-                    ax.anchorRightTopAlign(hr, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar label');
-                else
-                    ax.anchorBelowRightAlign(hr, himg, 'offsetY', 'tickLabelOffset', 'desc', 'colorbar label');
-                end
-            else
-                hr = []; 
-            end
             
-            labelAbove = p.Results.labelAbove;
             % anchor labelBelow directly beneath label low
-            if ~isempty(labelAbove)
-                hab = text(0, 0, toString(labelAbove), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'HorizontalAlignment', 'left', 'Parent', ax.axhDraw, 'Margin', 0.01);
+            if labelAbove ~= ""
+                hab = text(0, 0, labelAbove, 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'HorizontalAlignment', 'left', 'Parent', ax.axhDraw, 'Margin', 0.01);
                 if p.Results.labelAboveAlignTicks || ~isVertical
                     if ~isempty(hr)
                         if isVertical
@@ -5628,10 +6625,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % recreate the auto axes and scale bars if installed
             if ~isempty(ax.autoAxisX)
-                ax.addAutoAxisX();
+                ax.addAutoAxisX('persistUnmatchedArgs', false);
             end
             if ~isempty(ax.autoAxisY)
-                ax.addAutoAxisY();
+                ax.addAutoAxisY('persistUnmatchedArgs', false);
             end
             if ~isempty(ax.autoScaleBarX)
                 ax.addAutoScaleBarX();
@@ -6600,9 +7597,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                        t = ax.getCurrentPositionData(h, PositionType.Top);
                        he = ax.getCurrentPositionData(h, PositionType.Height);
                        wasResized = ax.updatePositionData(h, PositionType.Height, newHeightFn(he));
-                       if wasResized % false would be for objects that don't have height
+                       %if wasResized % false would be for objects that don't have height
                            ax.updatePositionData(h, PositionType.Top, newPosFn(t));
-                       end
+                       %end
                     end
                 
                 elseif posType == PositionType.Width
@@ -6631,9 +7628,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                        l = ax.getCurrentPositionData(h, PositionType.Left);
                        w = ax.getCurrentPositionData(h, PositionType.Width);
                        wasResized = ax.updatePositionData(h, PositionType.Width, newWidthFn(w));
-                       if wasResized % false would be for objects that don't have width (e.g. single point)
+%                        if wasResized % false would be for objects that don't have width (e.g. single point)
                            ax.updatePositionData(h, PositionType.Left, newPosFn(l));
-                       end
+%                        end
                     end
                     
                 elseif translateDontScale

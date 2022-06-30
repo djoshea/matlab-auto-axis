@@ -355,7 +355,7 @@ classdef AutoAxisGrid < handle
             % top - heights of me and above me - spacing above me
             bottom = g.PositionCurrent(2) + g.PositionCurrent(4) - sum(g.relHeight(1:row)) * nonSpaceH - sum(spacing_y(1:row));
 
-            MIN_SIZE = 0.5;
+            MIN_SIZE = 0.1 * getFigureSizeScale();
             if w < MIN_SIZE || h < MIN_SIZE
                 warning('AutoAxisGrid elements do not fit within space respecting LooseInset, expanding');
                 if w <  MIN_SIZE, w = MIN_SIZE; end
