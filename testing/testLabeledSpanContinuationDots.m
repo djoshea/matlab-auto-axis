@@ -14,7 +14,11 @@ ax = gca;
 ax.XTick = 0:pi/2:6*pi;
 ax.YTick = -1:1/6:1;
 
-continuationDots = [true, true];
+ax.XDir = 'reverse';
+ax.YDir = 'reverse';
+
+% continuationDots = [true, true];
+continuationDots = true(3, 2);
 spanPadding = [0.1 0.1];
 aa = AutoAxis();
 
@@ -32,14 +36,14 @@ end
 
 if individual
     aa.addLabeledSpan('y', span=[-1 -1/3], label="low amp", labelColor='k', color=[1 0.64 0], ...
-        rotation=90, continuationDots=continuationDots, spanPadding=spanPadding);
+        rotation=90, continuationDots=continuationDots, spanPadding=spanPadding, rotation=90);
     aa.addLabeledSpan('y', span=[-1/3 1/3], label="mid amp", labelColor='k', color=[1 0.64 0.5], ...
-        rotation=90, continuationDots=continuationDots, spanPadding=spanPadding);
+        rotation=90, continuationDots=continuationDots, spanPadding=spanPadding, rotation=90);
     aa.addLabeledSpan('y', span=[1/3 1], label="high amp", labelColor='k', color=[1 0.64 1], ...
-        rotation=90, continuationDots=continuationDots, spanPadding=spanPadding);
+        rotation=90, continuationDots=continuationDots, spanPadding=spanPadding, rotation=90);
 else
     aa.addLabeledSpan('y', span=[-1 -1/3; -1/3 1/3; 1/3 1]', label=["low amp", "mid amp", "high amp"], labelColor='k', color=[1 0.64 0; 1 0.64 0.5; 1 0.64 1], ...
-        continuationDots=continuationDots, spanPadding=spanPadding);
+        continuationDots=continuationDots, spanPadding=spanPadding, rotation=90);
 end
 
 grid on;
