@@ -257,25 +257,31 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         loc.bottom = tmp;
                     end
                     
-                case 'rectangle'
+                case {'rectangle', 'arrowshape'}
                     posv = get(loc.h, 'Position');
                     if yReverse
                         loc.top = posv(2);
-                        loc.bottom = posv(2) - posv(4);
+                        loc.bottom = posv(2) + posv(4); % was - posv(4)
                     else
                         loc.bottom = posv(2);
                         loc.top = posv(2) + posv(4);
                     end
+                    if posv(4) < 0 % this is fine with arrowshape
+                        [loc.top, loc.bottom] = swap(loc.top, loc.bottom);
+                    end
                     
                     if xReverse
                         loc.right = posv(1);
-                        loc.left = posv(1) - posv(3);
+                        loc.left = posv(1) + posv(3);
                     else
                         loc.left = posv(1);
                         loc.right = posv(1) + posv(3);
                     end
+                    if posv(3) < 0 % this is fine with arrowshape
+                        [loc.left, loc.right] = swap(loc.left, loc.right);
+                    end
                     
-                case 'image'
+                case {'image', 'surface'}
                     xdata = get(loc.h, 'XData');
                     ydata = get(loc.h, 'YData');
                     
@@ -344,6 +350,8 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     error('Unknown handle type %s', loc.type);
             end
             
+            function [b, a] = swap(a, b)
+            end
             
         end
 
@@ -407,6 +415,9 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                                         bottom = nanmin(ydata) - markerSizeY/2;
                                     end
                                     scale = (bottom-top) / (bottom-value);
+                                    if isinf(scale)
+                                        warning('Scaling line to 0 width');
+                                    end
                                     ydata = (ydata - bottom) / scale + bottom;
                                 end
 
@@ -427,6 +438,9 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                                         bottom = nanmin(ydata) - markerSizeY/2;
                                     end
                                     scale = (bottom-top) / (value-top);
+                                    if isinf(scale)
+                                        warning('Scaling line to 0 height');
+                                    end
                                     ydata = (ydata - top) / scale + top;
                                 end
 
@@ -908,20 +922,20 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         loc.right = ext(1) + ext(3);
                     end
                     
-                case 'rectangle'
+                case {'rectangle', 'arrowshape'}
                     p = get(h, 'Position'); % [left, bottom, width, height]
 
                     switch posType
                         case PositionType.Top
                             if translateDontScale
-                                if yReverse
+                                if xor(yReverse, p(4) < 0)
                                     p(2) = value;
                                 else
                                     p(2) = value - p(4);
                                 end
                             else
                                 % scale to keep current bottom
-                                if yReverse
+                                if xor(yReverse, p(4) < 0)
                                     % bottom is p(2) + p(4);
                                     bottom = p(2) + p(4);
                                     p(2) = value;
@@ -933,14 +947,14 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             end
                         case PositionType.Bottom
                             if translateDontScale
-                                if yReverse
+                                if xor(yReverse, p(4) < 0)
                                     p(2) = value - p(4);
                                 else
                                     p(2) = value;
                                 end
                             else
                                 % scale to keep current top
-                                if yReverse
+                                if xor(yReverse, p(4) < 0)
                                     % top is p(2)
                                     p(4) = value - p(2);
                                 else
@@ -960,14 +974,14 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             
                         case PositionType.Right
                             if translateDontScale
-                                if xReverse
+                                if xor(xReverse, p(3) < 0)
                                     p(1) = value;
                                 else
                                     p(1) = value - p(3);
                                 end
                             else
                                 % scale to keep current left
-                                if xReverse
+                                if xor(xReverse, p(3) < 0)
                                     % left is p(1) + p(3);
                                     right = p(1) + p(3);
                                     p(1) = value;
@@ -979,14 +993,14 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             end
                         case PositionType.Left
                             if translateDontScale
-                                if xReverse
+                                if xor(xReverse, p(3) < 0)
                                     p(1) = value - p(3);
                                 else
                                     p(1) = value;
                                 end
                             else
                                 % scale to keep current bottom
-                                if xReverse
+                                if xor(xReverse, p(3) < 0)
                                     % right is p(1)
                                     p(3) = value - p(1);
                                 else
@@ -1006,21 +1020,25 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             
                     end
 
-                    % test for negative scaling
-                    if p(3) < 0
-                        p(1) = p(1) + p(3);
-                        p(3) = -p(3);
-                    end
-                    
-                    if p(4) < 0
-                        p(2) = p(2) + p(4);
-                        p(4) = -p(4);
+                    % test for negative scaling (this is okay for arrowshape)
+                    if strcmp(type, 'rectangle')
+                        if p(3) < 0
+                            p(1) = p(1) + p(3);
+                            p(3) = -p(3);
+                        end
+                        
+                        if p(4) < 0
+                            p(2) = p(2) + p(4);
+                            p(4) = -p(4);
+                        end
                     end
                     set(h, 'Position', p);
                     success = true;
                     
-                    h.Clipping = 'off';
-                    if yReverse
+                    if isprop(h, 'Clipping')
+                        h.Clipping = 'off';
+                    end
+                    if xor(yReverse, p(4) < 0)
                         loc.top = p(2);
                         loc.bottom = p(2) + p(4);
                     else
@@ -1028,7 +1046,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         loc.bottom = p(2);
                     end
                     
-                    if xReverse
+                    if xor(xReverse, p(3) < 0)
                         loc.left = p(1) + p(3);
                         loc.right = p(1);
                     else
