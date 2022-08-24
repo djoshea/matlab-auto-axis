@@ -26,7 +26,7 @@ ax = AutoAxis;
 a1 = AnchorInfo(h, PositionType.Bottom, gca, PositionType.Bottom, -2);
 a2 = AnchorInfo(h, PositionType.Top, gca, PositionType.Top, -2);
 a2.translateDontScale = false;
-ax.addAnchor(a1);d
+ax.addAnchor(a1);
 ax.addAnchor(a2);
 
 a1 = AnchorInfo(h, PositionType.Right, gca, PositionType.Right, -2);

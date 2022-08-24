@@ -42,7 +42,7 @@ for i = 1:numel(avals)
 end
 
 aa = AutoAxis();
-aa.addColorbar(cmap, 'posX', PositionType.Left, 'posY', PositionType.Top, 'labelLow', '0', 'labelHigh', '100', 'labelCenter', 'Value');
+aa.addColorbar('cmap', cmap, 'labelLow', '0', 'labelHigh', '100', 'labelCenter', 'Value');
 aa.update();
 
 %%
@@ -66,7 +66,7 @@ for i = 1:numel(avals)
 end
 
 aa = AutoAxis();
-aa.addColorbar(cmap, 'posX', PositionType.Left, 'posY', PositionType.Top, 'labelLow', '0', 'labelHigh', '100', 'labelCenter', 'Value', 'backgroundColor', 'r', 'backgroundAlpha', 0.5);
+aa.addColorbar('cmap', cmap, 'labelLow', '0', 'labelHigh', '100', 'labelCenter', 'Value', 'backgroundColor', 'r', 'backgroundAlpha', 0.5);
 aa.update();
 
 %%

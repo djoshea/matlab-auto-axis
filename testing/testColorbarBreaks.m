@@ -52,8 +52,9 @@ set(gca, 'YDir', 'reverse');
 set(gca, 'YDir', 'normal');
 
 aa = AutoAxis();
-aa.replace();
+% aa.replace();
 % aa.hideBuiltinAxes = false; % helpful for debugging
-aa.addColorbar('cmap', map, 'limits', clims, 'breakInds', cbreaks_display, 'labelLimits', true, 'height', 5, 'breakLimitIntervals', cbreakIntervals, 'labelFormat', '%+g', 'units', 'μm');
+scale = getFigureSizeScale();
+aa.addColorbar('cmap', map, 'limits', clims, 'breakInds', cbreaks_display, 'labelLimits', true, 'height', 3*scale, 'breakLimitIntervals', cbreakIntervals, 'labelFormat', '%+g', 'units', 'μm');
 aa.axisMargin = [2.2 2 3 1];
 aa.update();

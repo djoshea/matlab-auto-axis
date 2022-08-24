@@ -57,42 +57,59 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             loc.queryPosition(varargin{:});
         end
         
-        function pos = getAggregateValue(infoVec, posType, xReverse, yReverse)
+        function pos = getAggregateValue(aa, infoVec, posType, fraction)
             % given a set of LocationSpec instances, determine the value of field that holds across all 
             % of the objects. E.g. if field is 'left', returns the minimum value of info.left for all info in infoVec
             % posType is AutoAxis.PositionType
 
             import AutoAxis.PositionType;
             import AutoAxis.LocationCurrent;
+
+            xReverse = aa.xReverse;
+            yReverse = aa.yReverse;
             
             field = posType.getDirectField();
-            if numel(infoVec) == 1
+            if numel(infoVec) == 1 && field ~= ""
                 pos = infoVec.(field);
                 return;
             end
 
-            % compute derivative positions recursively
+            if nargin < 2
+                fraction = 0;
+            end
+
+            % compute derived positions recursively
             pos = [];
             switch posType
                 case PositionType.VCenter
-                    top = LocationCurrent.getAggregateValue(infoVec, PositionType.Top, xReverse, yReverse);
-                    bottom = LocationCurrent.getAggregateValue(infoVec, PositionType.Bottom, xReverse, yReverse);
+                    top = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Top);
+                    bottom = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Bottom);
                     pos = (top+bottom)/2;
 
                 case PositionType.Height
-                    top = LocationCurrent.getAggregateValue(infoVec, PositionType.Top, xReverse, yReverse);
-                    bottom = LocationCurrent.getAggregateValue(infoVec, PositionType.Bottom, xReverse, yReverse);
+                    top = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Top);
+                    bottom = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Bottom);
                     pos = top - bottom;
 
                 case PositionType.HCenter
-                    left = LocationCurrent.getAggregateValue(infoVec, PositionType.Left, xReverse, yReverse);
-                    right = LocationCurrent.getAggregateValue(infoVec, PositionType.Right, xReverse, yReverse);
+                    left = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Left);
+                    right = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Right);
                     pos = (left+right)/2;
 
                 case PositionType.Width
-                    left = LocationCurrent.getAggregateValue(infoVec, PositionType.Left, xReverse, yReverse);
-                    right = LocationCurrent.getAggregateValue(infoVec, PositionType.Right, xReverse, yReverse);
+                    left = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Left);
+                    right = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Right);
                     pos = right - left;
+
+                case PositionType.VFraction
+                    top = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Top);
+                    bottom = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Bottom);
+                    pos = bottom * (1-fraction) + top * fraction;
+
+                case PositionType.HFraction
+                    left = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Left);
+                    right = LocationCurrent.getAggregateValue(aa, infoVec, PositionType.Right);
+                    pos = left * (1-fraction) + right * fraction;
             end
             if ~isempty(pos), return; end
 
@@ -101,39 +118,44 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             switch posType
                 case PositionType.Top
                     if yReverse
-                        pos = nanmin(posVec);
+                        pos = min(posVec, [], 'omitnan');
                     else
-                        pos = nanmax(posVec);
+                        pos = max(posVec, [], 'omitnan');
                     end
                 case PositionType.Bottom
                     if yReverse
-                        pos = nanmax(posVec);
+                        pos = max(posVec, [], 'omitnan');
                     else
-                        pos = nanmin(posVec);
+                        pos = min(posVec, [], 'omitnan');
                     end
                 case PositionType.Left
                     if xReverse
-                        pos = nanmax(posVec);
+                        pos = max(posVec, [], 'omitnan');
                     else
-                        pos = nanmin(posVec);
+                        pos = min(posVec, [], 'omitnan');
                     end
                 case PositionType.Right
                     if xReverse
-                        pos = nanmin(posVec);
+                        pos = min(posVec, [], 'omitnan');
                     else
-                        pos = nanmax(posVec);
+                        pos = max(posVec, [], 'omitnan');
                     end
                 case PositionType.MarkerDiameter
-                    pos = nanmax(posVec);
+                    pos = max(posVec, [], 'omitnan');
             end
         end
     end
     
     methods
-        function queryPosition(loc, xDataToPoints, yDataToPoints, xReverse, yReverse)
+        function queryPosition(loc, aa)
+            % grabs all the properties of loc from the current handle
             % xReverse is true if x axis is reversed, yReverse if y
             % reversed
-            
+            xDataToPoints = aa.xDataToPoints;
+            yDataToPoints = aa.yDataToPoints;
+            xReverse = aa.xReverse;
+            yReverse = aa.yReverse;
+
             if ~isvalid(loc.h)
                 warning('Invalid handle');
                 return;
@@ -238,25 +260,47 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     end
 
                 case 'axes'
-                    % return the limits of the axis...i.e. the coordinates
-                    % of the inner position of the axis in data units
-                    lim = axis(loc.h);
-                    loc.top = lim(4);
-                    loc.bottom = lim(3);
-                    loc.left = lim(1);
-                    loc.right = lim(2);
-                    
-                    if xReverse
-                        tmp = loc.left;
-                        loc.left = loc.right;
-                        loc.right = tmp;
+                    if loc.h == aa.axh
+                        % querying our own axis' inner plot box position 
+                        % simply return the limits of the axis...i.e. the coordinates
+                        % of the inner position of the axis in data units
+                        lim = axis(loc.h);
+                        loc.top = lim(4);
+                        loc.bottom = lim(3);
+                        loc.left = lim(1);
+                        loc.right = lim(2);
+                        
+                        if xReverse
+                            tmp = loc.left;
+                            loc.left = loc.right;
+                            loc.right = tmp;
+                        end
+                        if yReverse
+                            tmp = loc.top;
+                            loc.top = loc.bottom;
+                            loc.bottom = tmp;
+                        end
+                    else
+                        % querying position of a different axis or of our own outer position
+                        pos_norm = AutoAxis.axisPosInNormalizedFigureUnits(loc.h);
+                        posv = aa.convertNormalizedToDataUnits(pos_norm, false);
+                        if yReverse
+                            loc.top = posv(2);
+                            loc.bottom = posv(2) + posv(4); % was - posv(4)
+                        else
+                            loc.bottom = posv(2);
+                            loc.top = posv(2) + posv(4);
+                        end
+
+                        if xReverse
+                            loc.right = posv(1);
+                            loc.left = posv(1) + posv(3);
+                        else
+                            loc.left = posv(1);
+                            loc.right = posv(1) + posv(3);
+                        end
                     end
-                    if yReverse
-                        tmp = loc.top;
-                        loc.top = loc.bottom;
-                        loc.bottom = tmp;
-                    end
-                    
+
                 case {'rectangle', 'arrowshape'}
                     posv = get(loc.h, 'Position');
                     if yReverse
@@ -354,8 +398,14 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             end
             
         end
+        
+        function success = setPosition(loc, aa, posType, value, translateDontScale, applyToPointsWithinLine)
+            xDataToPoints = aa.xDataToPoints;
+            yDataToPoints = aa.yDataToPoints;
+            axh_base = aa.axh;  % the axis this AutoAxis is installed on
+            xReverse = aa.xReverse;
+            yReverse = aa.yReverse;
 
-        function success = setPosition(loc, posType, value, xDataToPoints, yDataToPoints, xReverse, yReverse, translateDontScale, applyToPointsWithinLine)
             import AutoAxis.*;
             h = loc.h; %#ok<*PROP>
             type = get(h, 'Type');
@@ -363,7 +413,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             if ~exist('applyToPointsWithinLine', 'var')
                 applyToPointsWithinLine = [];
             end
-            
+
             success = false;
             switch type
                 case 'line'
@@ -507,7 +557,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                                 xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
 
                             otherwise
-                                error('PositionType %s not supported for scatter', posType);
+                                error('PositionType %s not supported for line', posType);
                         end
                     else
                         % position specific point within line
@@ -922,8 +972,15 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         loc.right = ext(1) + ext(3);
                     end
                     
-                case {'rectangle', 'arrowshape'}
-                    p = get(h, 'Position'); % [left, bottom, width, height]
+                case {'rectangle', 'arrowshape', 'axes'}
+                    if strcmp(type, 'axes')
+                        % for axes, we'll grab the position in figure normalized coords and then trnalsate into data
+                        % units
+                        pos = AutoAxis.axisPosInNormalizedFigureUnits(h);
+                        p = aa.convertNormalizedToDataUnits(pos, false);
+                    else
+                        p = get(h, 'Position'); % [left, bottom, width, height]
+                    end
 
                     switch posType
                         case PositionType.Top
@@ -1032,7 +1089,18 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             p(4) = -p(4);
                         end
                     end
-                    set(h, 'Position', p);
+
+                    if strcmp(type, 'axes')
+                        % convert data units back to figure normalized units to position other axis
+                        hUnits = h.Units;
+                        h.Units = 'normalized';
+
+                        pnorm = aa.convertDataUnitsToNormalized(p, false);
+                        h.Position = pnorm;
+                        h.Units = hUnits;
+                    else
+                        h.Position = p;
+                    end
                     success = true;
                     
                     if isprop(h, 'Clipping')

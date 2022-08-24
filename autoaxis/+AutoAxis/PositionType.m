@@ -15,9 +15,13 @@ classdef PositionType < uint32
         Literal (9) % references an actual location in data coordinates on either X or Y axis. e.g. to implement a rightwards offset from X=20
         
         MarkerDiameter(10) % size the height/width of the marker on a line object
+
+        VFraction (11) % fractional position along vertical axis, uses .frac or fraca in AnchorInfo to store the actual fraction
+        HFraction (12) % fractional position along horizontal axis, uses .frac or fraca in AnchorInfo to store the actual fraction
     end
 
     methods
+
         function field = getDirectField(pos)
             import AutoAxis.PositionType;
 
@@ -35,10 +39,13 @@ classdef PositionType < uint32
                     field = 'left';
                 case PositionType.Right
                     field = 'right';
+                case PositionType.Width
+                    field = 'width';           
                 case PositionType.HCenter
                     field = 'hcenter';
-                case PositionType.Width
-                    field = 'width';
+               
+                otherwise
+                    field = '';
             end
         end
         
@@ -46,13 +53,15 @@ classdef PositionType < uint32
         function tf = isX(pos)
             import AutoAxis.PositionType;
             tf = pos == PositionType.Left | pos == PositionType.Right | ...
-                pos == PositionType.HCenter | pos == PositionType.Width;
+                pos == PositionType.HCenter | pos == PositionType.Width | ...
+                pos == PositionType.HFraction;
         end
 
         function tf = isY(pos)
             import AutoAxis.PositionType;
             tf = pos == PositionType.Bottom | pos == PositionType.Top | ...
-                pos == PositionType.VCenter | pos == PositionType.Height;
+                pos == PositionType.VCenter | pos == PositionType.Height | ...
+                pos == PositionType.VFraction;
         end
         
         function tf = specifiesSize(pos)
@@ -63,9 +72,9 @@ classdef PositionType < uint32
         function fields = getLocationFieldsAffected(pos)
             % list PositionType fields potentially affected by this type of anchor
             switch(pos)
-                case {PositionType.Top, PositionType.Bottom, PositionType.VCenter, PositionType.Height}
+                case {PositionType.Top, PositionType.Bottom, PositionType.VCenter, PositionType.Height, PositionType.VFraction}
                     fields = {'top', 'bottom', 'height'};
-                case {PositionType.Left, PositionType.Right, PositionType.HCenter, PositionType.Width}
+                case {PositionType.Left, PositionType.Right, PositionType.HCenter, PositionType.Width, PositionType.HFraction}
                     fields = {'left', 'right', 'width'};
             end
         end
@@ -77,12 +86,16 @@ classdef PositionType < uint32
                 switch pos(iP)
                     case PositionType.HCenter
                         posInv = PositionType.HCenter;
+                    case PositionType.HFraction
+                        posInv = PositionType.HFraction;
                     case PositionType.Left
                         posInv = PositionType.Right;
                     case PositionType.Right
                         posInv = PositionType.Left;
                     case PositionType.VCenter
                         posInv = PositionType.VCenter;
+                    case PositionType.VFraction
+                        posInv = PositionType.VFraction;
                     case PositionType.Top
                         posInv = PositionType.Bottom;
                     case PositionType.Bottom
@@ -90,7 +103,7 @@ classdef PositionType < uint32
                     
                     case {PositionType.Width, PositionType.Height, PositionType.Literal, PositionType.MarkerDiameter}
                         posInv = pos(iP);
-                        
+
                     otherwise
                         error('Not valid for flip');
                 end

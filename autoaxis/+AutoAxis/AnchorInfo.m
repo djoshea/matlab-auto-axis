@@ -4,11 +4,14 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
         
         valid = true;
         
-        h % handle or vector of handles of object(s) to position
-        ha % handle or vector of handles of object(s) to serve as anchor
+        h (:, 1) % handle or vector of handles of object(s) to position
+        ha (:, 1) % handle or vector of handles of object(s) to serve as anchor
         
         pos % AutoAxisPositionType value for this object
         posa % AutoAxisPositionType value or numerical scalar in paper units
+
+        frac % used for pos == VFraction/HFraction
+        fraca % used for posa = VFraction / HFraction
         
         margin % gap between h point and anchor point in paper units, can be string if expression
         
@@ -19,6 +22,13 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
         % instead of moving the whole line object, position specific points
         % directly within a line
         applyToPointsWithinLine = [];
+
+        % started working on this but it turned out to be too complex to do since each handle has exactly one
+        % LocationCurrent in the implementation. We'd need some kind of axis wrapper instance to do this properly
+        % for now if the axis margins are known, they can be factored into the offsets to achieve the same effect
+%         % if pos/posa is an axis, reference pos off of the OuterPosition of hte axis instead of the plot box position
+%         pos_axis_outerPosition = false;
+%         posa_axis_outerPosition = false;
     end  
     
 %     properties(Hidden, SetAccess=?AutoAxis)
@@ -45,6 +55,8 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
             p.addOptional('margin', 0, @(x) ischar(x) || isscalar(x) || isa(x, 'function_handle') || iscell(x));
             p.addOptional('desc', '', @isstringlike);
             p.addParameter('translateDontScale', true, @islogical);
+            p.addParameter('frac', [], @isscalar);
+            p.addParameter('fraca', [], @isscalar);
             p.parse(varargin{:});
             ai.h = p.Results.h;
             ai.pos = p.Results.pos;
@@ -53,6 +65,8 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
             ai.margin = p.Results.margin;
             ai.desc = p.Results.desc;
             ai.translateDontScale = p.Results.translateDontScale;
+            ai.frac = p.Results.frac;
+            ai.fraca = p.Results.fraca;
         end
     end
     
@@ -65,20 +79,15 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
              tf = ~isempty(info.ha) && all(~ischar(info.ha)) && ~iscellstr(info.ha) && info.posa ~= AutoAxis.PositionType.Literal;
         end
         
-        function h = get.h(info)
-            h = AutoAxisUtilities.makecol(info.h);
-        end
-        
-        function ha = get.ha(info)
-            ha = AutoAxisUtilities.makecol(info.ha);
-        end
-        
         function tf = specifiesPosition(info, pos)
+            % does this anchor specify position pos 
             import AutoAxis.PositionType;
-            posvec = [info.pos];
+            posvec = [info.pos]; % info is typically an array, pos is scalar
             tf = posvec == pos | posvec == pos.flip() | ...
                 (pos == PositionType.HCenter & posvec.isX() & ~posvec.specifiesSize()) | ...
-                (pos == PositionType.VCenter & posvec.isY() & ~posvec.specifiesSize());
+                (pos == PositionType.VCenter & posvec.isY() & ~posvec.specifiesSize()) | ...
+                ((pos == PositionType.Top || pos == PositionType.Bottom || pos == PositionType.VFraction) & posvec == PositionType.Height) | ...
+                ((pos == PositionType.Left || pos == PositionType.Right || pos == PositionType.HFraction) & posvec == PositionType.Width);
         end
     end
         

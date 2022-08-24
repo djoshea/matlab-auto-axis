@@ -2,7 +2,7 @@ import AutoAxis.PositionType;
 import AutoAxis.AnchorInfo;
 close all;
 
-figure(1), clf, set(1, 'Color', 'w');
+figure(), clf, set(1, 'Color', 'w');
 
 figSizeScale([8 8]);
 

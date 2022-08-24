@@ -134,6 +134,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         autoAxisYManualPositionX = NaN;
         autoAxisXManualPositionY = NaN;
+
+        autoScaleBarX_forceAlignWithOther = false;
+        autoScaleBarY_forceAlignWithOther = false;
     end
     
     % internal properties, mainly accessed through left/right/top/bottom
@@ -230,6 +233,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         
         xDataToPixels
         yDataToPixels
+
+        axPositionNormUnits
+        axOuterPositionNormUnits
         
         xAutoTicks
         xAutoMinorTicks
@@ -1883,7 +1889,6 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('persistUnmatchedArgs', true, @islogical); % allows update() to call without extra args
             p.parse(varargin{:});
             ax.autoAxisXExtendToLimits = p.Results.extendToLimits;
-            ax.autoAxisYExtendToLimits = p.Results.extendToLimits;
             if p.Results.persistUnmatchedArgs
                 ax.yAutoAxisInfo = p.Unmatched;
             end
@@ -2256,7 +2261,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 remove = [];
             end
             
-            alignWithOther = ~isempty(ax.autoScaleBarY);
+            alignWithOther = ~isempty(ax.autoScaleBarY) || ax.autoScaleBarX_forceAlignWithOther;
             
             % if the corresponding scale bar is added, we have to update the anchors
             if ax.autoScaleBarX_anchorsAlignedWithY ~= alignWithOther
@@ -2318,7 +2323,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 remove = [];
             end
             
-            alignWithOther = ~isempty(ax.autoScaleBarX);
+            alignWithOther = ~isempty(ax.autoScaleBarX) || ax.autoScaleBarY_forceAlignWithOther;
             % if the corresponding scale bar is added, we have to update the anchors
             if ax.autoScaleBarY_anchorsAlignedWithX ~= alignWithOther
                 firstTime = true;
@@ -3677,6 +3682,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('fontColor', ax.scaleBarFontColor, @(x) ischar(x) || isvector(x));
             p.addParameter('fontSize', ax.scaleBarFontSize, @(x) isscalar(x));
             p.addParameter('manualPositionAlongAxis', [], @(x) isempty(x) || isscalar(x)); % position of right edge of scale bar
+            p.addParameter('offsetOrthogonal', []); % defaults to axisPadding 
+            p.addParameter('offsetParallel', []); % default respects alignWithOtherScaleBar
             p.addParameter('alignWithOtherScaleBar', true, @islogical);
             
             p.addParameter('scaleBarLabelLateralOffset', 0, @isscalar); 
@@ -3846,6 +3853,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 addPosAnchors = p.Results.addPositionAnchors;
                 % remove old anchors in this collection
                 ax.deleteAnchorCollection(anchor_collection);
+                offsetOrthogonal = p.Results.offsetOrthogonal;
+                offsetParallel = p.Results.offsetParallel;
                 
                 if useX
                     % for x scale bar
@@ -3853,18 +3862,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         0, 'xScaleBar thickness');
                     ax.addAnchor(ai, 'collection', anchor_collection);
                     if addPosAnchors
+                        if isempty(offsetOrthogonal)
+                            offsetOrthogonal = 'axisPaddingBottom';
+                        end
                         ai = AnchorInfo(hrRef, PositionType.Top, ax.axh, ...
-                            PositionType.Bottom, 'axisPaddingBottom', ...
+                            PositionType.Bottom, offsetOrthogonal, ...
                             'xScaleBar at bottom of axis');
                         ax.addAnchor(ai, 'collection', anchor_collection);
                         if isempty(p.Results.manualPositionAlongAxis)
                             if p.Results.alignWithOtherScaleBar
+                                if isempty(offsetParallel)
+                                    offsetParallel = {'axisPaddingRight', 'scaleBarThickness'};
+                                end
                                 ai = AnchorInfo(hrRef, PositionType.Right, ax.axh, ...
-                                    PositionType.Right, {'axisPaddingRight', 'scaleBarThickness'}, ...
+                                    PositionType.Right, offsetParallel, ...
                                     'xScaleBar flush with right edge of yScaleBar at right of axis');
                             else
+                                if isempty(offsetParallel)
+                                    offsetParallel = 0;
+                                end
                                 ai = AnchorInfo(hrRef, PositionType.Right, ax.axh, ...
-                                    PositionType.Right, 0, ...
+                                    PositionType.Right, offsetParallel, ...
                                     'xScaleBar flush with right edge of axis');
                             end
                             ax.addAnchor(ai, 'collection', anchor_collection);
@@ -3893,18 +3911,27 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         'yScaleBar thickness');
                     ax.addAnchor(ai, 'collection', anchor_collection);
                     if addPosAnchors
+                        if isempty(offsetOrthogonal)
+                            offsetOrthogonal = 'axisPaddingRight';
+                        end
                         ai = AnchorInfo(hrRef, PositionType.Left, ax.axh, ...
-                            PositionType.Right, 'axisPaddingRight', ...
+                            PositionType.Right, offsetOrthogonal, ...
                             'yScaleBar at right of axis');
                         ax.addAnchor(ai, 'collection', anchor_collection);
                         if isempty(p.Results.manualPositionAlongAxis)
                             if p.Results.alignWithOtherScaleBar
+                                if isempty(offsetParallel)
+                                    offsetParallel = {'axisPaddingBottom', 'scaleBarThickness'};
+                                end
                                 ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
-                                    PositionType.Bottom, {'axisPaddingBottom', 'scaleBarThickness'}, ...
+                                    PositionType.Bottom, offsetParallel, ...
                                     'yScaleBar flush with bottom of xScaleBar at bottom of axis');
                             else
+                                if offsetParallel 
+                                    offsetParallel = 0;
+                                end
                                 ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
-                                    PositionType.Bottom, 0, ...
+                                    PositionType.Bottom, offsetParallel, ...
                                     'yScaleBar flush with bottom edge of axis');
                             end
                             ax.addAnchor(ai, 'collection', anchor_collection);
@@ -5826,7 +5853,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('width', NaN, @isscalar);
             p.addParameter('height', NaN, @isscalar);
             p.addParameter('units', '', @isstringlike);
-            p.addParameter('labelLimits', true, @islogical);
+
+            % in lieu of using manually placed labels, you can use ticks as well. Note that limits must be specified
+            p.addParameter('ticks', [], @isvector);
+            p.addParameter('tickLabels', [], @(x) isempty(x) || isstringlike(x));
+
+            p.addParameter('labelLimits', [], @(x) isempty(x) || islogical(x));
             p.addParameter('labelLimitsAboveBelow', false, @islogical);
             
             p.addParameter('labelHigh', '', @(x) ischar(x) || isscalar(x));
@@ -5878,10 +5910,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
 
             isVertical = strncmp(p.Results.orientation, 'v', 1);
-            labelFormat = char(p.Results.labelFormat);
-            labelFormatWithUnits = [labelFormat, ' %s'];
+            labelFormat = string(p.Results.labelFormat);
             units = string(p.Results.units);
+            labelFormatWithUnits = labelFormat + " " + units;
             
+            
+            ticks = p.Results.ticks;
+            tickLabels = p.Results.tickLabels;
+            labelLimits = p.Results.labelLimits;
+            if isempty(labelLimits)
+                labelLimits = isempty(ticks);
+            end
+
             cmap = p.Results.cmap;
             if isempty(cmap)
                 cmap = colormap(ax.axh);
@@ -5960,7 +6000,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 
                 hBreakRects = gobjects(0, 1);
+                htbreak = gobjects(0, 1)
             else
+                assert(isempty(ticks), 'Ticks not yet supported when using colorbar with breaks, need to implement computed location');
                 % handle special case where the colorbar has breaks drawn in it
                 
                 nBreaks = numel(breakInds);
@@ -6138,12 +6180,19 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 %                 end
             end
 
+            if ~isempty(ticks)
+                nTicks = numel(ticks);
+                if isempty(tickLabels)
+                    tickLabels = arrayfun(@(tick) sprintf(labelFormat, tick), ticks);
+                end
+            end
+
             labelHigh = toString(p.Results.labelHigh);
             if labelHigh == ""
                 % make limits
-                if p.Results.labelLimits
+                if labelLimits
                     if ~strcmp(units, "") && p.Results.limitHighAppendUnits
-                        labelHigh = sprintf(labelFormatWithUnits, climits(2), units);
+                        labelHigh = sprintf(labelFormatWithUnits, climits(2));
                     else
                         labelHigh = sprintf(labelFormat, climits(2)); % no units
                     end
@@ -6157,9 +6206,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             labelLow = toString(p.Results.labelLow);
             if labelLow == ""
                 % make limits
-                if p.Results.labelLimits
+                if labelLimits
                     if ~strcmp(units, "") && p.Results.limitLowAppendUnits
-                        labelLow = sprintf(labelFormatWithUnits, climits(1), units);
+                        labelLow = sprintf(labelFormatWithUnits, climits(1));
                     else
                         labelLow = sprintf(labelFormat, climits(1)); % no units
                     end
@@ -6173,7 +6222,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             labelBelow = toString(p.Results.labelBelow);
             if isequal(labelBelow, "") && p.Results.labelLimitsAboveBelow
                 if ~strcmp(units, "") && p.Results.limitLowAppendUnits
-                    labelBelow = sprintf(labelFormatWithUnits, climits(1), units);
+                    labelBelow = sprintf(labelFormatWithUnits, climits(1));
                 else
                     labelBelow = sprintf(labelFormat, climits(1)); % no units
                 end
@@ -6229,7 +6278,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             labelAbove = toString(p.Results.labelAbove);
             if isequal(labelAbove, "") && p.Results.labelLimitsAboveBelow
                 if ~strcmp(units, "") && p.Results.limitHighAppendUnits
-                    labelAbove = sprintf(labelFormatWithUnits, climits(2), units);
+                    labelAbove = sprintf(labelFormatWithUnits, climits(2));
                 else
                     labelAbove = sprintf(labelFormat, climits(2)); % no units
                 end
@@ -6246,6 +6295,30 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if isstring(x), return; end
                 if ~ischar(x), x = num2str(x); end
                 x = string(x);
+            end
+
+            if ~isempty(ticks)
+                hticks = gobjects(nTicks, 1);
+                for iT = 1:nTicks
+                    hticks(iT) = text(0, 0, tickLabels(iT), 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Margin', 0.01);
+                end
+
+                % for ticks, we anchor the y values individually based on the height of the colorbar
+                rescale = @(x, from, to) (x - from(1)) / (from(2) - from(1)) * (to(2) - to(1)) + to(1);
+                ticksFrac = rescale(ticks, climits, [0 1]);
+                for iT = 1:nTicks
+                    if isVertical
+                        ax.addAnchor(AnchorInfo(hticks(iT), PositionType.VCenter, himg, PositionType.VFraction, 0, 'colorbar tick VFraction', fraca=ticksFrac(iT)));
+                    else
+                        ax.addAnchor(AnchorInfo(hticks(iT), PositionType.HCenter, himg, PositionType.HFraction, 0, 'colorbar tick HFraction', fraca=ticksFrac(iT)));
+                    end
+                end
+
+                if isVertical
+                    ax.anchorRight(hticks, himg, 'offset', 'tickLabelOffset', 'desc', 'colorbar ticks');
+                else
+                    ax.anchorBelow(hticks, himg, 'offset', 'tickLabelOffset', 'desc', 'colorbar ticks');
+                end
             end
             
             if labelLow ~= ""
@@ -6383,6 +6456,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
             
             hout.himg = himg;
+            hout.hBreakRects = hBreakRects;
+            hout.htbreak = htbreak;
             hout.hhi = hr;
             hout.hlo = hl;
             hout.hc = hc;
@@ -6449,6 +6524,25 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     ax.anchorToAxisBottomRight(h, 'includeMargin', true, varargin{:});
                 end
             end
+        end
+
+        function anchorAround(ax, h, hto, varargin)
+            p = inputParser();
+            p.addParameter('padding', 0, @(x) true);
+            p.addParameter('desc', '', @isstringlike);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            padding = p.Results.padding;
+            if isscalar(padding)
+                padding = repmat(padding, 4, 1);
+            end
+            desc = string(p.Results.desc);
+            ax.addAnchor(AnchorInfo(h, PositionType.Left, hto, PositionType.Left, padding(1), desc + " (left)", translateDontScale=true));
+            ax.addAnchor(AnchorInfo(h, PositionType.Bottom, hto, PositionType.Bottom, padding(2), desc + " (bottom)", translateDontScale=true));
+            ax.addAnchor(AnchorInfo(h, PositionType.Right, hto, PositionType.Right, padding(3), desc + " (right)", translateDontScale=false));
+            ax.addAnchor(AnchorInfo(h, PositionType.Top, hto, PositionType.Top, padding(4), desc + " (bottom)", translateDontScale=false));
         end
         
         function anchorToAxisTopLeft(ax, h, varargin)
@@ -7533,8 +7627,55 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             axpos = get(axh,'Position');
             ax.xDataToPixels = axpos(3)/axwidth;
             ax.yDataToPixels = axpos(4)/axheight;
+
+            % needed for axis data units to normalized figure units conversion
+            [ax.axPositionNormUnits, ax.axOuterPositionNormUnits] = AutoAxis.axisPosInNormalizedFigureUnits(axh);
             
             set(axh, 'Units', axUnits);
+        end
+
+        function pos = convertNormalizedToDataUnits(aa, pos, treatAsSize)
+            axpos = aa.axPositionNormUnits; % our axis inner plot box position in normalized figure units
+
+            %% Get limits
+            axlim = axis(aa.axh);
+            axwidth = diff(axlim(1:2));
+            axheight = diff(axlim(3:4));
+
+            if treatAsSize
+                assert(size(pos, 2) == 2);
+                pos(:,1) = pos(:,1)*axwidth/axpos(3);
+                pos(:,2) = pos(:,2)*axheight/axpos(4);        
+            else
+                pos(:,1) = (pos(:,1) - axpos(1))*axwidth/axpos(3) + axlim(1);
+                pos(:,2) = (pos(:,2) - axpos(2))*axheight/axpos(4) + axlim(3);
+                if size(pos, 2) > 2
+                    pos(:,3) = pos(:,3)*axwidth/axpos(3);
+                    pos(:,4) = pos(:,4)*axheight/axpos(4);        
+                end
+            end
+        end
+
+        function pos = convertDataUnitsToNormalized(aa, pos, treatAsSize)
+            axpos = aa.axPositionNormUnits; % our axis inner plot box position in normalized figure units
+
+            %% Get limits
+            axlim = axis(aa.axh);
+            axwidth = diff(axlim(1:2));
+            axheight = diff(axlim(3:4));
+
+            if treatAsSize
+                assert(size(pos, 2) == 2);
+                pos(:,1) = pos(:,1)/axwidth*axpos(3);
+                pos(:,2) = pos(:,2)/axheight*axpos(4);        
+            else
+                pos(:,1) = (pos(:,1) - axlim(1))/axwidth*axpos(3) + axpos(1);
+                pos(:,2) = (pos(:,2) - axlim(3))/axheight*axpos(4) + axpos(2);
+                if size(pos, 2) > 2
+                    pos(:,3) = pos(:,3)/axwidth*axpos(3);
+                    pos(:,4) = pos(:,4)/axheight*axpos(4);        
+                end
+            end
         end
         
         function tf = get.xReverse(ax)
@@ -7659,8 +7800,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             locCell = ax.mapLocationCurrent;
             for iH = 1:numel(locCell)
                 if locCell{iH}.isDynamic
-                    locCell{iH}.queryPosition(ax.xDataToPoints, ax.yDataToPoints, ...
-                        ax.xReverse, ax.yReverse);
+                    locCell{iH}.queryPosition(ax);
                 end
             end
             
@@ -7668,8 +7808,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             missing = AutoAxis.setdiffHandles(hvec, ax.mapLocationHandles);
             for iH = 1:numel(missing)
                 ax.setLocationCurrent(missing(iH), ...
-                    AutoAxis.LocationCurrent.buildForHandle(missing(iH), ...
-                    ax.xDataToPoints, ax.yDataToPoints, ax.xReverse, ax.yReverse));
+                    AutoAxis.LocationCurrent.buildForHandle(missing(iH), ax));
             end
         end
         
@@ -7721,18 +7860,18 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 pAnchor = info.ha;
             else
                 % get the position of the anchoring element
-                pAnchor = ax.getCurrentPositionData(info.ha, info.posa);
+                pAnchor = ax.getCurrentPositionData(info.ha, info.posa, info.fraca);
             end
 
             % add margin to anchor in the correct direction if possible
             if ~isempty(info.ha) && ~isempty(info.margin) && ~isnan(info.margin)
                 offset = 0;
                 
-                if info.posa == PositionType.Top || info.posa == PositionType.VCenter
+                if info.posa == PositionType.Top
                     offset = info.margin / ax.yDataToUnits;
-                elseif info.posa == PositionType.Bottom
+                elseif info.posa == PositionType.Bottom || info.posa == PositionType.VCenter || info.posa == PositionType.VFraction
                     offset = -info.margin / ax.yDataToUnits;
-                elseif info.posa == PositionType.Left ||  info.posa == PositionType.HCenter
+                elseif info.posa == PositionType.Left ||  info.posa == PositionType.HCenter || info.posa == PositionType.HFraction
                     offset = -info.margin / ax.xDataToUnits;
                 elseif info.posa == PositionType.Right
                     offset = info.margin / ax.xDataToUnits;
@@ -7752,7 +7891,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % and actually set the position of the data
             % this will also create / update the position information
             % in the LocationCurrent for that object
-            ax.updatePositionData(info.h, info.pos, pAnchor, info.translateDontScale, info.applyToPointsWithinLine);
+            ax.updatePositionData(info.h, info.pos, pAnchor, info.translateDontScale, info.applyToPointsWithinLine, info.frac);
             
             valid = true;
         end
@@ -7852,6 +7991,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % if this anchor sets the position of h, add dependencies
                 % on any anchors which affect the size of the same object so
                 % that sizing happens before positioning
+                % note: this may be handled by width and height additions to specifiesPosition code...
                 if ~specifiesSize(iA)
                     if isX(iA)
                         dependencyMat(iA, :) = dependencyMat(iA, :) | (hAffectSameMat(iA, :)' & specifiesSize & isX)';
@@ -7936,9 +8076,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             maskTop = [info.pos] == PositionType.Top;
             maskBottom = [info.pos] == PositionType.Bottom;
             maskVCenter = [info.pos] == PositionType.VCenter;
+            maskVFraction = [info.pos] == PositionType.VFraction;
             maskLeft = [info.pos] == PositionType.Left;
             maskRight = [info.pos] == PositionType.Right;
             maskHCenter = [info.pos] == PositionType.HCenter;
+            maskHFraction = [info.pos] == PositionType.HFraction;
             maskHeight = [info.pos] == PositionType.Height; 
             maskWidth = [info.pos] == PositionType.Width;
 
@@ -7951,43 +8093,53 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
 
             switch posType
                 case PositionType.Top
-                    if sum([any(maskBottom) any(maskHeight) any(maskVCenter)]) >= 1 % specifying any of these will affect the top
-                        maskImplicit = maskBottom | maskHeight | maskVCenter; 
+                    if sum([any(maskBottom) any(maskHeight) any(maskVCenter) any(maskVFraction)]) >= 1 % specifying any of these will affect the top
+                        maskImplicit = maskBottom | maskHeight | maskVCenter | maskVFraction; 
                     end
 
                 case PositionType.Bottom
-                    if sum([any(maskTop) any(maskHeight) any(maskVCenter)]) >= 1
-                        maskImplicit = maskTop | maskHeight | maskVCenter; 
+                    if sum([any(maskTop) any(maskHeight) any(maskVCenter) any(maskVFraction)]) >= 1 % specifying any of these will affect the bottom
+                        maskImplicit = maskTop | maskHeight | maskVCenter | maskVFraction; 
+                    end
+
+                case PositionType.VFraction
+                    if sum([any(maskTop) any(maskBottom) any(maskHeight) any(maskVCenter)]) >= 1 % specifying any of these will affect a fractional location in vert axis
+                        maskImplicit = maskTop | maskBottom | maskHeight | maskVCenter; 
                     end
 
                 case PositionType.Height
-                    if sum([any(maskTop) any(maskBottom) any(maskVCenter)]) >= 2 % specifying any 2 of these will dictate the height, specifying only one will keep the height as is
-                        maskImplicit = maskTop | maskBottom | maskVCenter;
+                    if sum([any(maskTop) any(maskBottom) any(maskVCenter) any(maskVFraction)]) >= 2 % specifying any 2 of these will dictate the height, specifying only one will keep the height as is
+                        maskImplicit = maskTop | maskBottom | maskVCenter | maskVFraction;
                     end
 
                 case PositionType.VCenter
-                    if sum([any(maskTop) any(maskBottom) any(maskHeight)]) >= 1
-                        maskImplicit = maskTop | maskBottom | maskHeight;
+                    if sum([any(maskTop) any(maskBottom) any(maskHeight) any(maskVFraction)]) >= 1 % specifying any of these will affect the Vcenter
+                        maskImplicit = maskTop | maskBottom | maskHeight | maskVFraction;
                     end
 
                 case PositionType.Left
-                    if sum([any(maskRight) any(maskWidth) any(maskHCenter)]) >= 1
-                        maskImplicit = maskRight | maskWidth | maskHCenter;
+                    if sum([any(maskRight) any(maskWidth) any(maskHCenter) any(maskHFraction)]) >= 1 % specifying any of these will affect the left
+                        maskImplicit = maskRight | maskWidth | maskHCenter | maskHFraction;
                     end
 
                 case PositionType.Right
-                    if sum([any(maskLeft) any(maskWidth) any(maskHCenter)]) >= 1
-                        maskImplicit = maskLeft | maskWidth | maskHCenter; 
+                    if sum([any(maskLeft) any(maskWidth) any(maskHCenter) any(maskHFraction)]) >= 1 % specifying any of these will affect the right
+                        maskImplicit = maskLeft | maskWidth | maskHCenter | maskHFraction; 
+                    end
+
+                case PositionType.HFraction
+                    if sum([any(maskLeft) any(maskRight) any(maskWidth) any(maskHCenter)]) >= 1 % specifying any of these will affect a fractional location in horiz axis
+                        maskImplicit = maskLeft | maskRight | maskWidth | maskHCenter; 
                     end
 
                 case PositionType.Width
-                    if sum([any(maskLeft) && any(maskRight) any(maskHCenter)]) >= 2
-                        maskImplicit = maskLeft | maskRight | maskHCenter;
+                    if sum([any(maskLeft) && any(maskRight) any(maskHCenter) any(maskHFraction)]) >= 2 % specifying any 2 of these will dictate the width, specifying only one will keep the width as is
+                        maskImplicit = maskLeft | maskRight | maskHCenter | maskHFraction;
                     end
 
                 case PositionType.HCenter
-                    if sum([any(maskLeft) && any(maskRight) any(maskWidth)]) >= 1
-                        maskImplicit = maskLeft | maskRight | maskWidth;
+                    if sum([any(maskLeft) && any(maskRight) any(maskWidth) any(maskHFraction)]) >= 1  % specifying any of these will affect the HCenter
+                        maskImplicit = maskLeft | maskRight | maskWidth | maskHFraction;
                     end
             end
             
@@ -7998,13 +8150,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             mask(idx) = true;
         end
         
-        function pos = getCurrentPositionData(ax, hvec, posType)
+        function pos = getCurrentPositionData(ax, hvec, posType, fraction)
             % grab the specified position / size value for object h, in figure units
             % when hvec is a vector of handles, uses the outer bounding
             % box for the objects instead
             
             import AutoAxis.PositionType;
             import AutoAxis.LocationCurrent;
+
+            if nargin < 4
+                fraction = 0;
+            end
             
             if isempty(hvec)
                 % pass thru for specifying length or width directly
@@ -8017,10 +8173,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             clocVec = cat(1, clocVec{:});
 
             % and compute aggregate value across all handles
-            pos = LocationCurrent.getAggregateValue(clocVec, posType, ax.xReverse, ax.yReverse);
+            pos = LocationCurrent.getAggregateValue(ax, clocVec, posType, fraction);
         end
         
-        function success = updatePositionData(ax, hVec, posType, value, translateDontScale, applyToPointsWithinLine)
+        function success = updatePositionData(ax, hVec, posType, value, translateDontScale, applyToPointsWithinLine, fraction)
             % update the position of handles in vector hVec using the LocationCurrent in 
             % ax.locMap. When hVec is a vector of handles, linearly shifts
             % each object to maintain the relative positions and to
@@ -8029,162 +8185,19 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             value = double(value);
             import AutoAxis.*;
             
-            if ~exist('translateDontScale', 'var')
+            if ~exist('translateDontScale', 'var') || isempty(translateDontScale)
                 translateDontScale = true;
             end
             if ~exist('applyToPointsWithinLine', 'var')
                 applyToPointsWithinLine = [];
             end
-            
-            % set success to tru if any position details are actually set 
-            
-            if ~isscalar(hVec)
-                % here we linearly scale / translate the bounding box
-                % in order to maintain internal anchoring, scaling should
-                % be done before any "internal" anchorings are computed,
-                % which should be taken care of by findAnchorsSpecifying
-                %
-                % note that this will recursively call updatePositionData, so that
-                % the corresponding LocationCurrent objects will be updated
-                
-                if posType == PositionType.Height
-                    % scale everything vertically, but keep existing
-                    % vcenter (of bounding box) in place
-                    
-                    % first find the existing extrema of the objects
-                    oldTop = ax.getCurrentPositionData(hVec, PositionType.Top);
-                    oldBottom = ax.getCurrentPositionData(hVec, PositionType.Bottom);
-                    oldHeight = abs(oldTop - oldBottom);
-                    if ax.yReverse
-                        newTop = (oldTop+oldBottom) / 2 + value/2;
-                            % build affine scaling fns for inner objects
-                        newPosFn = @(p) (p-oldTop) * (value / oldHeight) + newTop;
-                        newHeightFn = @(h) h * (value / -(oldTop-oldBottom));
-                    else
-                        newBottom = (oldTop+oldBottom) / 2 - value/2;
-                            % build affine scaling fns for inner objects
-                        newPosFn = @(p) (p-oldBottom) * (value / oldHeight) + newBottom;
-                        newHeightFn = @(h) h * (value / (oldTop-oldBottom));
-                    end
-                    
-                    % loop over each object and shift its position by offset
-                    for i = 1:numel(hVec)
-                       h = hVec(i);
-                       t = ax.getCurrentPositionData(h, PositionType.Top);
-                       he = ax.getCurrentPositionData(h, PositionType.Height);
-                       wasResized = ax.updatePositionData(h, PositionType.Height, newHeightFn(he));
-                       %if wasResized % false would be for objects that don't have height
-                           ax.updatePositionData(h, PositionType.Top, newPosFn(t));
-                       %end
-                    end
-                
-                elseif posType == PositionType.Width
-                    % scale everything horizontally, but keep existing
-                    % hcenter (of bounding box) in place if anchored
-                    
-                    % first find the existing extrema of the objects
-                    oldRight = ax.getCurrentPositionData(hVec, PositionType.Right);
-                    oldLeft = ax.getCurrentPositionData(hVec, PositionType.Left);
-                    oldWidth = abs(oldRight - oldLeft);
-                    
-                    if ax.xReverse
-                        newRight = (oldRight+oldLeft) / 2 - value/2;
-                        % build affine scaling fns
-                        newPosFn = @(p) (p-oldRight) * (value / oldWidth) + newRight;
-                        newWidthFn = @(w) w * value / oldWidth;
-                    else
-                        newLeft = (oldRight+oldLeft) / 2 - value/2;
-                        % build affine scaling fns
-                        newPosFn = @(p) (p-oldLeft) * (value / oldWidth) + newLeft;
-                        newWidthFn = @(w) w * value / oldWidth;
-                    end
-                    % loop over each object and shift its position by offset
-                    for i = 1:numel(hVec)
-                       h = hVec(i);
-                       l = ax.getCurrentPositionData(h, PositionType.Left);
-                       w = ax.getCurrentPositionData(h, PositionType.Width);
-                       wasResized = ax.updatePositionData(h, PositionType.Width, newWidthFn(w));
-%                        if wasResized % false would be for objects that don't have width (e.g. single point)
-                           ax.updatePositionData(h, PositionType.Left, newPosFn(l));
-%                        end
-                    end
-                    
-                elseif translateDontScale
-                    % simply shift each object by the same offset, thereby shifting the bounding box 
-                    offset = value - ax.getCurrentPositionData(hVec,  posType);
-                    for i = 1:numel(hVec)
-                       h = hVec(i);
-                       p = ax.getCurrentPositionData(h, posType);
-                       ax.updatePositionData(h, posType, p + offset);
-                    end
-                    
-                elseif posType.isX()
-                    % first find the existing extrema of the objects
-                    oldLeft = ax.getCurrentPositionData(hVec, PositionType.Left);
-                    oldRight = ax.getCurrentPositionData(hVec, PositionType.Right);
-                    
-                    if posType == PositionType.Right
-                        % keep existing Left, change Right to value
-                        newRight = value;
-                        newLeft = oldLeft;
-                    else
-                        % keep existing Right, scale to set Left to
-                        % value
-                        newRight = oldRight;
-                        newLeft = value;
-                    end
-                    
-                    scaleBy = (newRight-newLeft) / (oldRight-oldLeft);
-                    
-                    % build affine scaling fns for inner objects
-                    newLeftFn = @(p) (p-oldLeft)*scaleBy + newLeft;
-                    newRightFn = @(p) (p-oldLeft)*scaleBy + newLeft;
-                    
-                    % loop over each object and shift its position by offset
-                    for i = 1:numel(hVec)
-                       h = hVec(i);
-                       t = ax.getCurrentPositionData(h, PositionType.Right);
-                       b = ax.getCurrentPositionData(h, PositionType.Left);
-                       ax.updatePositionData(h, PositionType.Left, newLeftFn(b), true); % this will purely translate
-                       ax.updatePositionData(h, PositionType.Right, newRightFn(t), false); % this will scale
-                    end
-                    
-                elseif ~posType.isX()
-                    % first find the existing extrema of the objects
-                    oldTop = ax.getCurrentPositionData(hVec, PositionType.Top);
-                    oldBottom = ax.getCurrentPositionData(hVec, PositionType.Bottom);
-                    
-                    if posType == PositionType.Top
-                        % keep existing bottom, change top to value
-                        newTop = value;
-                        newBottom = oldBottom;
-                    else
-                        % keep existing Top, scale to set bottom to
-                        % value
-                        newTop = oldTop;
-                        newBottom = value;
-                    end
-                    
-                    scaleBy = (newTop-newBottom) / (oldTop-oldBottom);
-                    
-                    % build affine scaling fns for inner objects
-                    newBottomFn = @(p) (p-oldBottom)*scaleBy + newBottom;
-                    newTopFn = @(p) (p-oldBottom)*scaleBy + newBottom;
-                    
-                    % loop over each object and shift its position by offset
-                    for i = 1:numel(hVec)
-                       h = hVec(i);
-                       t = ax.getCurrentPositionData(h, PositionType.Top);
-                       b = ax.getCurrentPositionData(h, PositionType.Bottom);
-                       ax.updatePositionData(h, PositionType.Bottom, newBottomFn(b), true); % this will purely translate
-                       ax.updatePositionData(h, PositionType.Top, newTopFn(t), false); % this will scale
-                    end
-                    
-                else
-                    error('Not sure how to handle posType %s', posType);
-                end
+            if ~exist('fraction', 'var')
+                fraction = NaN;
+            end
 
-                success = true;
+            % set success to tru if any position details are actually set             
+            if ~isscalar(hVec)
+                success = ax.setAggregatePosition(hVec, posType, value, translateDontScale, fraction);
             else
                 % scalar handle, move it directly via the LocationCurrent
                 % handle 
@@ -8193,9 +8206,243 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % use the corresponding LocationCurrent for this single
                 % object to move the graphics object
                 cloc = ax.getLocationCurrent(h);
-                success = cloc.setPosition(posType, value, ...
-                    ax.xDataToPoints, ax.yDataToPoints, ax.xReverse, ax.yReverse, translateDontScale, applyToPointsWithinLine);
+                posCurrent = LocationCurrent.getAggregateValue(ax, cloc, posType, fraction);
+
+                % handle some derived position types first that can be expressed more simply in terms of the more
+                % fundamental position types
+                if posType == PositionType.VCenter || posType == PositionType.HCenter
+                    fraction = 0.5;
+                end
+                
+                switch posType
+                    case {PositionType.VCenter, PositionType.VFraction}
+                        posTop = LocationCurrent.getAggregateValue(ax, cloc, PositionType.Top, NaN);
+                            
+                        if translateDontScale
+                            % recast this as shifting the top isntead
+                            posTopNew = posTop + (value - posCurrent);
+                            success = ax.updatePositionData(h, PositionType.Top, posTopNew, true, applyToPointsWithinLine, NaN);
+                        else
+                            % stretch in the direction of value
+                            if (~ax.yReverse && posTop <= value) || (ax.yReverse && posTop >= value)
+                                % desired location is above top, keep bottom in place and move top accordingly
+                                assert(fraction ~= 0, 'fraction cannot be 0 when positioning, since the top is anchored and fraction == 0 refers to Bottom')
+                                posBottom = LocationCurrent.getAggregateValue(ax, cloc, PositionType.Bottom, NaN);
+                                posTopNew = posBottom + (value - posBottom) / fraction;
+                                success = ax.updatePositionData(h, PositionType.Top, posTopNew, translateDontScale, applyToPointsWithinLine, NaN);
+                            else
+                                % keep top in place and move bottom accordingly
+                                assert(fraction ~= 1, 'fraction cannot be 1 when positioning, since the top is anchored and fraction == 1 refers to Top')
+                                posBottomNew = posTop - (posTop - value) / (1-fraction);
+                                success = ax.updatePositionData(h, PositionType.Bottom, posBottomNew, translateDontScale, applyToPointsWithinLine, NaN);
+                            end
+                        end
+
+                   case {PositionType.HCenter, PositionType.HFraction}
+                       posRight = LocationCurrent.getAggregateValue(ax, cloc, PositionType.Right, NaN);
+                                
+                        if translateDontScale
+                            % recast this as shifting the top isntead
+                            posRightNew = posRight + (value - posCurrent);
+                            success = ax.updatePositionData(h, PositionType.Right, posRightNew, true, applyToPointsWithinLine, NaN);
+                        else
+                            if (~ax.xReverse && posRight <= value) || (ax.xReverse && posRight >= value)
+                                % desired location is right of right, keep left in place and move right accordingly
+                                posLeft = LocationCurrent.getAggregateValue(ax, cloc, PositionType.Left, NaN);
+                                assert(fraction ~= 0, 'fraction cannot be 0 when positioning, since the left is anchored and fraction == 1 refers to Top')
+                                posRightNew = posLeft + (value - posLeft) / fraction;
+                                success = ax.updatePositionData(h, PositionType.Right, posRightNew, translateDontScale, applyToPointsWithinLine, NaN);
+                            else
+                                % keep right in place and move left accordingly
+                                assert(fraction ~= 1, 'fraction cannot be 1 when positioning, since the right is anchored and fraction == 1 refers to Right')
+                                posLeftNew = posRight - (posRight - value) / (1-fraction);
+                                success = ax.updatePositionData(h, PositionType.Left, posLeftNew, translateDontScale, applyToPointsWithinLine, NaN);
+                            end
+                        end  
+                            
+                    otherwise
+                        % let LocationCurrent handle the simplified positioning of Top/Bottom/Left/Right/Width/Height
+                        success = cloc.setPosition(ax, posType, value, translateDontScale, applyToPointsWithinLine);
+                end
             end
+        end
+
+        function success = setAggregatePosition(ax, hVec, posType, value, translateDontScale, fraction)
+            % here we linearly scale / translate the bounding box
+            % in order to maintain internal anchoring, scaling should
+            % be done before any "internal" anchorings are computed,
+            % which should be taken care of by findAnchorsSpecifying
+            %
+            % note that this will recursively call updatePositionData, so that
+            % the corresponding LocationCurrent objects will be updated
+            import AutoAxis.PositionType
+                
+            if posType == PositionType.Height
+                % scale everything vertically, but keep existing
+                % vcenter (of bounding box) in place
+                
+                % first find the existing extrema of the objects
+                oldTop = ax.getCurrentPositionData(hVec, PositionType.Top);
+                oldBottom = ax.getCurrentPositionData(hVec, PositionType.Bottom);
+                oldHeight = abs(oldTop - oldBottom);
+                if ax.yReverse
+                    newTop = (oldTop+oldBottom) / 2 + value/2;
+                        % build affine scaling fns for inner objects
+                    newPosFn = @(p) (p-oldTop) * (value / oldHeight) + newTop;
+                    newHeightFn = @(h) h * (value / -(oldTop-oldBottom));
+                else
+                    newBottom = (oldTop+oldBottom) / 2 - value/2;
+                        % build affine scaling fns for inner objects
+                    newPosFn = @(p) (p-oldBottom) * (value / oldHeight) + newBottom;
+                    newHeightFn = @(h) h * (value / (oldTop-oldBottom));
+                end
+                
+                % loop over each object and shift its position by offset
+                for i = 1:numel(hVec)
+                   h = hVec(i);
+                   t = ax.getCurrentPositionData(h, PositionType.Top);
+                   he = ax.getCurrentPositionData(h, PositionType.Height);
+                   ax.updatePositionData(h, PositionType.Height, newHeightFn(he));
+                   ax.updatePositionData(h, PositionType.Top, newPosFn(t));
+                end
+            
+            elseif posType == PositionType.Width
+                % scale everything horizontally, but keep existing
+                % hcenter (of bounding box) in place if anchored
+                
+                % first find the existing extrema of the objects
+                oldRight = ax.getCurrentPositionData(hVec, PositionType.Right);
+                oldLeft = ax.getCurrentPositionData(hVec, PositionType.Left);
+                oldWidth = abs(oldRight - oldLeft);
+                
+                if ax.xReverse
+                    newRight = (oldRight+oldLeft) / 2 - value/2;
+                    % build affine scaling fns
+                    newPosFn = @(p) (p-oldRight) * (value / oldWidth) + newRight;
+                    newWidthFn = @(w) w * value / oldWidth;
+                else
+                    newLeft = (oldRight+oldLeft) / 2 - value/2;
+                    % build affine scaling fns
+                    newPosFn = @(p) (p-oldLeft) * (value / oldWidth) + newLeft;
+                    newWidthFn = @(w) w * value / oldWidth;
+                end
+                % loop over each object and shift its position by offset
+                for i = 1:numel(hVec)
+                   h = hVec(i);
+                   l = ax.getCurrentPositionData(h, PositionType.Left);
+                   w = ax.getCurrentPositionData(h, PositionType.Width);
+                   ax.updatePositionData(h, PositionType.Width, newWidthFn(w));
+                   ax.updatePositionData(h, PositionType.Left, newPosFn(l));
+                end
+                
+            elseif translateDontScale
+                % simply shift each object by the same offset, thereby shifting the bounding box 
+                offset = value - ax.getCurrentPositionData(hVec,  posType, fraction);
+                for i = 1:numel(hVec)
+                   h = hVec(i);
+                   p = ax.getCurrentPositionData(h, posType, fraction);
+                   ax.updatePositionData(h, posType, p + offset, translateDontScale, [], fraction);
+                end
+                
+            elseif posType.isX()
+                % first find the existing extrema of the objects
+                oldLeft = ax.getCurrentPositionData(hVec, PositionType.Left);
+                oldRight = ax.getCurrentPositionData(hVec, PositionType.Right);
+                
+                if posType == PositionType.Right
+                    % keep existing Left, change Right to value
+                    newRight = value;
+                    newLeft = oldLeft;
+                elseif posType == PositionType.Left
+                    % keep existing Right, scale to set Left value
+                    newRight = oldRight;
+                    newLeft = value;
+                elseif posType == PositionType.HFraction || posType == PositionType.HCenter
+                    if posType == PositionType.HCenter
+                        fraction = 0.5;
+                    end
+
+                    % stretch in the direction of value
+                    if (~ax.xReverse && oldRight <= value) || (ax.xReverse && oldRight >= value)
+                        % desired location is right of right, keep left in place and move right accordingly
+                        assert(fraction ~= 0, 'fraction cannot be 0 when positioning, since the top is anchored and fraction == 0 refers to Bottom')
+                        newLeft = oldLeft;
+                        newRight = newLeft + (value - newLeft) / fraction;
+                    else
+                        % keep right in place and move left accordingly
+                        assert(fraction ~= 1, 'fraction cannot be 1 when positioning, since the top is anchored and fraction == 1 refers to Top')
+                        newRight = oldRight;
+                        newLeft = newRight - (newRight - value) / (1-fraction);
+                    end
+                end
+                
+                scaleBy = (newRight-newLeft) / (oldRight-oldLeft);
+                
+                % build affine scaling fns for inner objects
+                newLeftFn = @(p) (p-oldLeft)*scaleBy + newLeft;
+                newRightFn = @(p) (p-oldLeft)*scaleBy + newLeft;
+                
+                % loop over each object and shift its position by offset
+                for i = 1:numel(hVec)
+                   h = hVec(i);
+                   t = ax.getCurrentPositionData(h, PositionType.Right);
+                   b = ax.getCurrentPositionData(h, PositionType.Left);
+                   ax.updatePositionData(h, PositionType.Left, newLeftFn(b), true); % this will purely translate
+                   ax.updatePositionData(h, PositionType.Right, newRightFn(t), false); % this will scale
+                end
+                
+            elseif ~posType.isX()
+                % first find the existing extrema of the objects
+                oldTop = ax.getCurrentPositionData(hVec, PositionType.Top);
+                oldBottom = ax.getCurrentPositionData(hVec, PositionType.Bottom);
+                
+                if posType == PositionType.Top
+                    % keep existing bottom, change top to value
+                    newTop = value;
+                    newBottom = oldBottom;
+                elseif posType == PositionType.Bottom
+                    % keep existing Top, scale to set bottom to value
+                    newTop = oldTop;
+                    newBottom = value;
+                elseif posType == PositionType.VFraction || posType == PositionType.VCenter
+                    if posType == PositionType.VCenter
+                        fraction = 0.5;
+                    end
+
+                    % stretch in the direction of value
+                    if (~ax.yReverse && oldTop <= value) || (ax.yReverse && oldTop >= value)
+                        % desired location is above top, keep bottom in place and move top accordingly
+                        assert(fraction ~= 0, 'fraction cannot be 0 when positioning, since the top is anchored and fraction == 0 refers to Bottom')
+                        newBottom = oldBottom;
+                        newTop = newBottom + (value - newBottom) / fraction;
+                    else
+                        % keep top in place and move bottom accordingly
+                        assert(fraction ~= 1, 'fraction cannot be 1 when positioning, since the top is anchored and fraction == 1 refers to Top')
+                        newTop = oldTop;
+                        newBottom = newTop - (newTop - value) / (1-fraction);
+                    end
+                end
+                
+                scaleBy = (newTop-newBottom) / (oldTop-oldBottom);
+                
+                % build affine scaling fns for inner objects
+                newBottomFn = @(p) (p-oldBottom)*scaleBy + newBottom;
+                newTopFn = @(p) (p-oldBottom)*scaleBy + newBottom;
+                
+                % loop over each object and shift its position by offset
+                for i = 1:numel(hVec)
+                   h = hVec(i);
+                   t = ax.getCurrentPositionData(h, PositionType.Top);
+                   b = ax.getCurrentPositionData(h, PositionType.Bottom);
+                   ax.updatePositionData(h, PositionType.Bottom, newBottomFn(b), true); % this will purely translate
+                   ax.updatePositionData(h, PositionType.Top, newTopFn(t), false); % this will scale
+                end
+                
+            else
+                error('Not sure how to handle posType %s', posType);
+            end
+
+            success = true;
         end
     end
     
@@ -8334,6 +8581,49 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             set(temp, 'Units', currunit);
             pos = get(temp, 'position');
             delete(temp);
+        end
+    
+        function [pos, outerPos] = axisPosInNormalizedFigureUnits(axh)
+            if nargin < 1
+                axh = gca;
+            end
+
+            if ~ishandle(axh) || ~strcmp(get(axh,'type'), 'axes')
+                error('Input must be an axis handle');
+            end
+
+            % Get position of axis in pixels
+            currunit = get(axh, 'units');
+            set(axh, 'Units', 'normalized');
+            pos = AutoAxis.plotboxpos(axh);
+            outerPos = get(axh, 'OuterPosition');
+            set(axh, 'Units', currunit);
+        end
+
+        function pos = convertNormFigureUnitsToAxisDataUnits(axh, pos, treatAsSize)
+            if nargin < 3
+                treatAsSize = false;
+            end
+            
+            axpos = AutoAxis.axisPosInNormalizedFigureUnits(axh);
+
+            %% Get limits
+            axlim = axis(axh);
+            axwidth = diff(axlim(1:2));
+            axheight = diff(axlim(3:4));
+
+            if treatAsSize
+                assert(size(pos, 2) == 2);
+                pos(:,1) = pos(:,1)*axwidth/axpos(3);
+                pos(:,2) = pos(:,2)*axheight/axpos(4);        
+            else
+                pos(:,1) = (pos(:,1) - axpos(1))*axwidth/axpos(3) + axlim(1);
+                pos(:,2) = (pos(:,2) - axpos(2))*axheight/axpos(4) + axlim(3);
+                if size(pos, 2) > 2
+                    pos(:,3) = pos(:,3)*axwidth/axpos(3);
+                    pos(:,4) = pos(:,4)*axheight/axpos(4);        
+                end
+            end
         end
     end
 end
