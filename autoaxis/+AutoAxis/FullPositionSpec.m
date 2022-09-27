@@ -60,6 +60,41 @@ classdef FullPositionSpec
             spec.offsetY = paddingY;
             spec.outsideY = false;
         end
+
+        function spec = outsideTopRight(paddingX, paddingY)
+            if nargin < 1
+                paddingX = 0;
+            end
+            if nargin < 2
+                paddingY = 'tickLabelOffset';
+            end
+            
+            spec = AutoAxis.FullPositionSpec;
+            spec.posX = AutoAxis.PositionType.Right;
+            spec.outsideX = false;
+            spec.offsetX = paddingX;
+            spec.posY = AutoAxis.PositionType.Top;
+            spec.offsetY = paddingY;
+            spec.outsideY = true;
+        end
+
+        function spec = outsideTopFullWidth(paddingX, paddingY)
+            if nargin < 1
+                paddingX = 0;
+            end
+            if nargin < 2
+                paddingY = 'tickLabelOffset';
+            end
+            
+            spec = AutoAxis.FullPositionSpec;
+            spec.posX = AutoAxis.PositionType.Right;
+            spec.outsideX = false;
+            spec.offsetX = paddingX;
+            spec.matchSizeX = true;
+            spec.posY = AutoAxis.PositionType.Top;
+            spec.offsetY = paddingY;
+            spec.outsideY = true;
+        end
         
         function spec = outsideRightBottom(paddingX)
             if nargin < 1

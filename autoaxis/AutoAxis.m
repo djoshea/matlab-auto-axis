@@ -1529,6 +1529,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
         
         function vec = setenvNum(name, value)
+            vec = AutoAxis.getenvVec(name);
             str = num2str(value);
             setenv(name, str);
         end
@@ -4732,7 +4733,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
         end 
 
-        function [hl, ht] = addLabeledSpanBubbles(ax, varargin)
+        function [hr, ht] = addLabeledSpanBubbles(ax, varargin)
             % very similar to addLabeledSpans except uses rounded rectangles and adds some new options
             %  - continuation ellipses at the edges
             %  - padding relative to endpoints to create space between adjacent bubbles
@@ -5442,7 +5443,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addHandlesToCollection('generated', hvec);
         end
         
-        function [htitle, hsub] = addInsetTitle(ax, title, subtitle, varargin)
+        function h = addInsetTitle(ax, title, subtitle, varargin)
             import AutoAxis.PositionType;
             import AutoAxis.AnchorInfo;
             
@@ -5463,9 +5464,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('fillAlpha', 1, @isscalar);
             p.KeepUnmatched = true;
             p.parse(varargin{:});
-            posX = p.Results.posX;
-            posY = p.Results.posY;
-
+           
             % try replacing with this
             if isempty(title) || strcmp(title, "")
                 hasTitle = false;
@@ -5494,7 +5493,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             weights = [string(p.Results.fontWeight); string(p.Results.fontWeightSubtitle)];
             mask = [hasTitle; hasSubtitle];
 
-            ax.addColoredLabels(labels(mask), colors(mask, :), p.Unmatched, FontSize=sizes(mask), FontWeight=weights(mask), ...
+            h = ax.addColoredLabels(labels(mask), colors(mask, :), p.Unmatched, FontSize=sizes(mask), FontWeight=weights(mask), ...
                 posX=p.Results.posX, posY=p.Results.posY, spacing=p.Results.spacing, ...
                 offsetX=p.Results.offsetX, offsetY=p.Results.offsetY, stacking=p.Results.stacking, ...
                 fillColor=p.Results.fillColor, fillAlpha=p.Results.fillAlpha);
@@ -5833,7 +5832,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('cmap', [], @(x) isa(x, 'function_handle') || ismatrix(x) || isempty(x));
             p.addParameter('limits', [], @isvector);
-            p.addParameter('labelFormat', '%g', @ischar);
+            p.addParameter('labelFormat', '%g', @isstringlike);
             p.addParameter('breakInds', [], @isvector);
             
             % specify one of the following:
@@ -5882,14 +5881,17 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('labelCenterAppendUnits', false, @islogical);
 
             p.addParameter('labelCenterOtherSide', '', @(x) isstringlike(x) || isscalar(x));
+            p.addParameter('labelCenterOtherSideColor', ax.labelFontColor);
             p.addParameter('labelCenterOtherSideRotation', 0, @isscalar);
             p.addParameter('labelCenterOtherSideAppendUnits', false, @islogical);
 
             p.addParameter('labelLeftOtherSide', '', @(x) isstringlike(x) || isscalar(x));
+            p.addParameter('labelLeftOtherSideColor', ax.labelFontColor);
             p.addParameter('labelLeftOtherSideRotation', 0, @isscalar);
             p.addParameter('labelLeftOtherSideAppendUnits', false, @islogical);
             
             p.addParameter('labelRightOtherSide', '', @(x) isstringlike(x) || isscalar(x));
+            p.addParameter('labelRightOtherSideColor', ax.labelFontColor);
             p.addParameter('labelRightOtherSideRotation', 0, @isscalar);
             p.addParameter('labelRightOtherSideAppendUnits', false, @islogical);
 
@@ -6000,7 +6002,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
                 
                 hBreakRects = gobjects(0, 1);
-                htbreak = gobjects(0, 1)
+                htbreak = gobjects(0, 1);
             else
                 assert(isempty(ticks), 'Ticks not yet supported when using colorbar with breaks, need to implement computed location');
                 % handle special case where the colorbar has breaks drawn in it
@@ -6381,7 +6383,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
 
             if labelCenterOtherSide ~= ""
-                hcos = text(0, 0, labelCenterOtherSide, 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelCenterOtherSideRotation, 'Margin', 0.01);
+                hcos = text(0, 0, labelCenterOtherSide, 'FontSize', p.Results.fontSize, "Color", p.Results.labelCenterOtherSideColor, ...
+                    'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelCenterOtherSideRotation, 'Margin', 0.01);
                 if isVertical
                     ax.anchorLeftCenterAlign(hcos, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelCenterOtherSide');
                 else
@@ -6392,7 +6395,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
 
             if labelLeftOtherSide ~= ""
-                hlos = text(0, 0, labelLeftOtherSide, 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelLeftOtherSideRotation, 'Margin', 0.01);
+                hlos = text(0, 0, labelLeftOtherSide, 'FontSize', p.Results.fontSize, "Color", p.Results.labelLeftOtherSideColor, ...
+                    'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelLeftOtherSideRotation, 'Margin', 0.01);
                 if isVertical
                     ax.anchorLeftBottomAlign(hlos, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelLeftOtherSide');
                 else
@@ -6403,7 +6407,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
 
             if labelRightOtherSide ~= ""
-                hros = text(0, 0, labelRightOtherSide, 'FontSize', p.Results.fontSize, 'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelLeftOtherSideRotation, 'Margin', 0.01);
+                hros = text(0, 0, labelRightOtherSide, 'FontSize', p.Results.fontSize, "Color", p.Results.labelRightOtherSideColor, ...
+                    'BackgroundColor', 'none', 'Parent', ax.axhDraw, 'Rotation', p.Results.labelLeftOtherSideRotation, 'Margin', 0.01);
                 if isVertical
                     ax.anchorLeftTopAlign(hros, himg, 'offsetX', 'tickLabelOffset', 'desc', 'colorbar labelRightOtherSide');
                 else
