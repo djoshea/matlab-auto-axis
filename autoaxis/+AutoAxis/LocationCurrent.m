@@ -179,10 +179,10 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     xdata = get(loc.h, 'XData');
                     ydata = get(loc.h, 'YData');
 
-                    loc.top = nanmax(ydata) + markerSizeY/2;
-                    loc.bottom = nanmin(ydata) - markerSizeY/2;
-                    loc.left = nanmin(xdata) - markerSizeX/2;
-                    loc.right = nanmax(xdata) + markerSizeX/2;
+                    loc.top = max(ydata,[], 'omitnan') + markerSizeY/2;
+                    loc.bottom = min(ydata, [], 'omitnan') - markerSizeY/2;
+                    loc.left = min(xdata, [], 'omitnan') - markerSizeX/2;
+                    loc.right = max(xdata, [], 'omitnan') + markerSizeX/2;
                     
                     if xReverse
                         tmp = loc.left;
@@ -204,10 +204,10 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     markerRadiusY = sqrt(szdata / pi) / yDataToPoints;
                     markerRadiusX = sqrt(szdata / pi) / xDataToPoints;
 
-                    loc.top = nanmax(ydata + markerRadiusY);
-                    loc.bottom = nanmin(ydata - markerRadiusY);
-                    loc.left = nanmin(xdata - markerRadiusX);
-                    loc.right = nanmax(xdata + markerRadiusX);
+                    loc.top = max(ydata + markerRadiusY, [], 'omitnan');
+                    loc.bottom = min(ydata - markerRadiusY, [], 'omitnan');
+                    loc.left = min(xdata - markerRadiusX, [], 'omitnan');
+                    loc.right = max(xdata + markerRadiusX, [], 'omitnan');
                     
                     if xReverse
                         tmp = loc.left;
@@ -225,10 +225,10 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     xdata = data(:, 1);
                     ydata = data(:, 2);
                     
-                    loc.top = nanmax(ydata);
-                    loc.bottom = nanmin(ydata);
-                    loc.left = nanmin(xdata);
-                    loc.right = nanmax(xdata);
+                    loc.top = max(ydata, [], 'omitnan');
+                    loc.bottom = min(ydata, [], 'omitnan');
+                    loc.left = min(xdata, [], 'omitnan');
+                    loc.right = max(xdata, [], 'omitnan');
                     
                     if xReverse
                         tmp = loc.left;
@@ -402,7 +402,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
         function success = setPosition(loc, aa, posType, value, translateDontScale, applyToPointsWithinLine)
             xDataToPoints = aa.xDataToPoints;
             yDataToPoints = aa.yDataToPoints;
-            axh_base = aa.axh;  % the axis this AutoAxis is installed on
+%             axh_base = aa.axh;  % the axis this AutoAxis is installed on
             xReverse = aa.xReverse;
             yReverse = aa.yReverse;
 
@@ -451,18 +451,18 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             case PositionType.Top
                                 if translateDontScale
                                     if yReverse
-                                        ydata = ydata - nanmin(ydata) + value + markerSizeY/2;
+                                        ydata = ydata - min(ydata, [], 'omitnan') + value + markerSizeY/2;
                                     else
-                                        ydata = ydata - nanmax(ydata) + value - markerSizeY/2;
+                                        ydata = ydata - max(ydata, [], 'omitnan') + value - markerSizeY/2;
                                     end
                                 else
                                     % scale to keep current bottom
                                     if yReverse
-                                        bottom = nanmax(ydata) + markerSizeY/2;
-                                        top = nanmin(ydata) - markerSizeY/2;
+                                        bottom = max(ydata, [], 'omitnan') + markerSizeY/2;
+                                        top = min(ydata, [], 'omitnan') - markerSizeY/2;
                                     else
-                                        top = nanmax(ydata) + markerSizeY/2;
-                                        bottom = nanmin(ydata) - markerSizeY/2;
+                                        top = max(ydata, [], 'omitnan') + markerSizeY/2;
+                                        bottom = min(ydata, [], 'omitnan') - markerSizeY/2;
                                     end
                                     scale = (bottom-top) / (bottom-value);
                                     if isinf(scale)
@@ -474,18 +474,18 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             case PositionType.Bottom
                                 if translateDontScale
                                     if yReverse
-                                        ydata = ydata - nanmax(ydata) + value - markerSizeY/2;
+                                        ydata = ydata - max(ydata, [], 'omitnan') + value - markerSizeY/2;
                                     else
-                                        ydata = ydata - nanmin(ydata) + value + markerSizeY/2;
+                                        ydata = ydata - min(ydata, [], 'omitnan') + value + markerSizeY/2;
                                     end
                                 else
                                     % scale to keep current top
                                     if yReverse
-                                        bottom = nanmax(ydata) + markerSizeY/2;
-                                        top = nanmin(ydata) - markerSizeY/2;
+                                        bottom = max(ydata, [], 'omitnan') + markerSizeY/2;
+                                        top = min(ydata, [], 'omitnan') - markerSizeY/2;
                                     else
-                                        top = nanmax(ydata) + markerSizeY/2;
-                                        bottom = nanmin(ydata) - markerSizeY/2;
+                                        top = max(ydata, [], 'omitnan') + markerSizeY/2;
+                                        bottom = min(ydata, [], 'omitnan') - markerSizeY/2;
                                     end
                                     scale = (bottom-top) / (value-top);
                                     if isinf(scale)
@@ -495,11 +495,11 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                                 end
 
                             case PositionType.VCenter
-                                lo = nanmin(ydata); hi = nanmax(ydata);
+                                lo = min(ydata, [], 'omitnan'); hi = max(ydata, [], 'omitnan');
                                 ydata = (ydata - (hi+lo)/2) + value;
 
                             case PositionType.Height
-                                lo = nanmin(ydata); hi = nanmax(ydata); mid = (lo+hi) / 2;
+                                lo = min(ydata, [], 'omitnan'); hi = max(ydata, [], 'omitnan'); mid = (lo+hi) / 2;
                                 if hi - lo < eps, return, end
                                 if numel(ydata) == 1
                                     return
@@ -509,18 +509,18 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             case PositionType.Left
                                 if translateDontScale
                                     if xReverse
-                                        xdata = xdata - nanmax(xdata) + value - markerSizeX/2;
+                                        xdata = xdata - max(xdata, [], 'omitnan') + value - markerSizeX/2;
                                     else
-                                        xdata = xdata - nanmin(xdata) + value + markerSizeX/2;
+                                        xdata = xdata - min(xdata, [], 'omitnan') + value + markerSizeX/2;
                                     end
                                 else
                                     % scale to keep current right
                                     if xReverse
-                                        left = nanmax(xdata) + markerSizeX/2;
-                                        right = nanmin(xdata) - markerSizeX/2;
+                                        left = max(xdata, [], 'omitnan') + markerSizeX/2;
+                                        right = min(xdata, [], 'omitnan') - markerSizeX/2;
                                     else
-                                        left = nanmin(xdata) + markerSizeX/2;
-                                        right = nanmax(xdata) - markerSizeX/2;
+                                        left = min(xdata, [], 'omitnan') + markerSizeX/2;
+                                        right = max(xdata, [], 'omitnan') - markerSizeX/2;
                                     end
                                     scale = (left-right) / (value-right);
                                     xdata = (xdata-right) / scale + right;
@@ -529,29 +529,29 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             case PositionType.Right
                                 if translateDontScale
                                     if xReverse
-                                        xdata = xdata - nanmin(xdata) + value + markerSizeX/2;
+                                        xdata = xdata - min(xdata, [], 'omitnan') + value + markerSizeX/2;
                                     else
-                                        xdata = xdata - nanmax(xdata) + value - markerSizeX/2;
+                                        xdata = xdata - max(xdata, [], 'omitnan') + value - markerSizeX/2;
                                     end
                                 else
                                     % scale to keep current left
                                     if xReverse
-                                        left = nanmax(xdata) + markerSizeX/2;
-                                        right = nanmin(xdata) - markerSizeX/2;
+                                        left = max(xdata, [], 'omitnan') + markerSizeX/2;
+                                        right = min(xdata, [], 'omitnan') - markerSizeX/2;
                                     else
-                                        left = nanmin(xdata) + markerSizeX/2;
-                                        right = nanmax(xdata) - markerSizeX/2;
+                                        left = min(xdata, [], 'omitnan') + markerSizeX/2;
+                                        right = max(xdata, [], 'omitnan') - markerSizeX/2;
                                     end
                                     scale = (left-right) / (left-value);
                                     xdata = (xdata-left) / scale + left;
                                 end
 
                             case PositionType.HCenter
-                                lo = nanmin(xdata); hi = nanmax(xdata);
+                                lo = min(xdata, [], 'omitnan'); hi = max(xdata, [], 'omitnan');
                                 xdata = (xdata - (hi+lo)/2) + value;
 
                             case PositionType.Width
-                                lo = nanmin(xdata); hi = nanmax(xdata); mid = (lo+hi)/2;
+                                lo = min(xdata, [], 'omitnan'); hi = max(xdata, [], 'omitnan'); mid = (lo+hi)/2;
                                 if hi - lo < eps, return, end
                                 if numel(xdata) == 1, return, end % can't change width of single point
                                 xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
@@ -620,19 +620,19 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     % update position based on new settings, including
                     % marker sizes
                     if xReverse
-                        loc.right = nanmin(xdata) - markerSizeX/2;
-                        loc.left = nanmax(xdata) + markerSizeX/2;
+                        loc.right = min(xdata, [], 'omitnan') - markerSizeX/2;
+                        loc.left = max(xdata, [], 'omitnan') + markerSizeX/2;
                     else
-                        loc.left = nanmin(xdata) - markerSizeX/2;
-                        loc.right = nanmax(xdata) + markerSizeX/2;
+                        loc.left = min(xdata, [], 'omitnan') - markerSizeX/2;
+                        loc.right = max(xdata, [], 'omitnan') + markerSizeX/2;
                     end
                     
                     if yReverse
-                        loc.bottom = nanmax(ydata) + markerSizeY/2;
-                        loc.top = nanmin(ydata) - markerSizeY/2;
+                        loc.bottom = max(ydata, [], 'omitnan') + markerSizeY/2;
+                        loc.top = min(ydata, [], 'omitnan') - markerSizeY/2;
                     else
-                        loc.top = nanmax(ydata) + markerSizeY/2;
-                        loc.bottom = nanmin(ydata) - markerSizeY/2;
+                        loc.top = max(ydata, [], 'omitnan') + markerSizeY/2;
+                        loc.bottom = min(ydata, [], 'omitnan') - markerSizeY/2;
                     end
                     
                 case 'scatter'
@@ -649,18 +649,18 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Top
                             if translateDontScale
                                 if yReverse
-                                    ydata = ydata - nanmin(ydata - markerSizeY/2) + value; % sign arrangement is different because we consider the individual marker sizes inside the min
+                                    ydata = ydata - min(ydata - markerSizeY/2, [], 'omitnan') + value; % sign arrangement is different because we consider the individual marker sizes inside the min
                                 else
-                                    ydata = ydata - nanmax(ydata + markerSizeY/2) + value;
+                                    ydata = ydata - max(ydata + markerSizeY/2, [], 'omitnan') + value;
                                 end
                             else
                                 % scale to keep current bottom
                                 if yReverse
-                                    bottom = nanmax(ydata + markerSizeY/2);
-                                    top = nanmin(ydata - markerSizeY/2);
+                                    bottom = max(ydata + markerSizeY/2, [], 'omitnan');
+                                    top = min(ydata - markerSizeY/2, [], 'omitnan');
                                 else
-                                    top = nanmax(ydata + markerSizeY);
-                                    bottom = nanmin(ydata - markerSizeY/2);
+                                    top = max(ydata + markerSizeY, [], 'omitnan');
+                                    bottom = min(ydata - markerSizeY/2, [], 'omitnan');
                                 end
                                 scale = (bottom-top) / (bottom-value);
                                 ydata = (ydata - bottom) / scale + bottom;
@@ -669,29 +669,29 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Bottom
                             if translateDontScale
                                 if yReverse
-                                    ydata = ydata - nanmax(ydata + markerSizeY/2) + value;
+                                    ydata = ydata - max(ydata + markerSizeY/2, [], 'omitnan') + value;
                                 else
-                                    ydata = ydata - nanmin(ydata - markerSizeY/2) + value;
+                                    ydata = ydata - min(ydata - markerSizeY/2, [], 'omitnan') + value;
                                 end
                             else
                                 % scale to keep current top
                                 if yReverse
-                                    bottom = nanmax(ydata + markerSizeY/2);
-                                    top = nanmin(ydata - markerSizeY/2);
+                                    bottom = max(ydata + markerSizeY/2, [], 'omitnan');
+                                    top = min(ydata - markerSizeY/2, [], 'omitnan');
                                 else
-                                    top = nanmax(ydata + markerSizeY/2);
-                                    bottom = nanmin(ydata - markerSizeY/2);
+                                    top = max(ydata + markerSizeY/2, [], 'omitnan');
+                                    bottom = min(ydata - markerSizeY/2, [], 'omitnan');
                                 end
                                 scale = (bottom-top) / (value-top);
                                 ydata = (ydata - top) / scale + top;
                             end
 
                         case PositionType.VCenter
-                            lo = nanmin(ydata); hi = nanmax(ydata);
+                            lo = min(ydata, [], 'omitnan'); hi = max(ydata, [], 'omitnan');
                             ydata = (ydata - (hi+lo)/2) + value;
 
                         case PositionType.Height
-                            lo = nanmin(ydata); hi = nanmax(ydata); mid = (lo+hi) / 2;
+                            lo = min(ydata, [], 'omitnan'); hi = max(ydata, [], 'omitnan'); mid = (lo+hi) / 2;
                             if hi - lo < eps, return, end
                             if numel(ydata) == 1
                                 return
@@ -701,18 +701,18 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Left
                             if translateDontScale
                                 if xReverse
-                                    xdata = xdata - nanmax(xdata + markerSizeX/2) + value;
+                                    xdata = xdata - max(xdata + markerSizeX/2, [], 'omitnan') + value;
                                 else
-                                    xdata = xdata - nanmin(xdata - markerSizeX/2) + value;
+                                    xdata = xdata - min(xdata - markerSizeX/2, [], 'omitnan') + value;
                                 end
                             else
                                 % scale to keep current right
                                 if xReverse
-                                    left = nanmax(xdata + markerSizeX/2);
-                                    right = nanmin(xdata - markerSizeX/2);
+                                    left = max(xdata + markerSizeX/2, [], 'omitnan');
+                                    right = min(xdata - markerSizeX/2, [], 'omitnan');
                                 else
-                                    left = nanmin(xdata + markerSizeX/2);
-                                    right = nanmax(xdata - markerSizeX/2);
+                                    left = min(xdata + markerSizeX/2, [], 'omitnan');
+                                    right = max(xdata - markerSizeX/2, [], 'omitnan');
                                 end
                                 scale = (left-right) / (value-right);
                                 xdata = (xdata-right) / scale + right;
@@ -721,29 +721,32 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Right
                             if translateDontScale
                                 if xReverse
-                                    xdata = xdata - nanmin(xdata - markerSizeX/2) + value;
+                                    xdata = xdata - min(xdata - markerSizeX/2, [], 'omitnan') + value;
                                 else
-                                    xdata = xdata - nanmax(xdata + markerSizeX/2) + value;
+                                    xdata = xdata - max(xdata + markerSizeX/2, [], 'omitnan') + value;
                                 end
                             else
                                 % scale to keep current left
                                 if xReverse
-                                    left = nanmax(xdata + markerSizeX/2);
-                                    right = nanmin(xdata - markerSizeX/2);
+                                    left = max(xdata + markerSizeX/2, [], 'omitnan');
+                                    right = min(xdata - markerSizeX/2, [], 'omitnan');
                                 else
-                                    left = nanmin(xdata + markerSizeX/2);
-                                    right = nanmax(xdata - markerSizeX/2);
+                                    left = min(xdata + markerSizeX/2, [], 'omitnan');
+                                    right = max(xdata - markerSizeX/2, [], 'omitnan');
                                 end
                                 scale = (left-right) / (left-value);
                                 xdata = (xdata-left) / scale + left;
                             end
 
                         case PositionType.HCenter
-                            lo = nanmin(xdata); hi = nanmax(xdata);
+                            lo = min(xdata, [], 'omitnan'); 
+                            hi = max(xdata, [], 'omitnan');
                             xdata = (xdata - (hi+lo)/2) + value;
 
                         case PositionType.Width
-                            lo = nanmin(xdata); hi = nanmax(xdata); mid = (lo+hi)/2;
+                            lo = min(xdata, [], 'omitnan'); 
+                            hi = max(xdata, [], 'omitnan'); 
+                            mid = (lo+hi)/2;
                             if hi - lo < eps, return, end
                             if numel(xdata) == 1, return, end % can't change width of single point
                             xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
@@ -759,19 +762,19 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     % update position based on new settings, including
                     % marker sizes
                     if xReverse
-                        loc.right = nanmin(xdata - markerSizeX/2);
-                        loc.left = nanmax(xdata + markerSizeX/2);
+                        loc.right = min(xdata - markerSizeX/2, [], 'omitnan');
+                        loc.left = max(xdata + markerSizeX/2, [], 'omitnan');
                     else
-                        loc.left = nanmin(xdata - markerSizeX/2);
-                        loc.right = nanmax(xdata + markerSizeX/2);
+                        loc.left = min(xdata - markerSizeX/2, [], 'omitnan');
+                        loc.right = max(xdata + markerSizeX/2, [], 'omitnan');
                     end
                     
                     if yReverse
-                        loc.bottom = nanmax(ydata + markerSizeY/2);
-                        loc.top = nanmin(ydata - markerSizeY/2);
+                        loc.bottom = max(ydata + markerSizeY/2, [], 'omitnan');
+                        loc.top = min(ydata - markerSizeY/2, [], 'omitnan');
                     else
-                        loc.top = nanmax(ydata + markerSizeY/2);
-                        loc.bottom = nanmin(ydata - markerSizeY/2);
+                        loc.top = max(ydata + markerSizeY/2, [], 'omitnan');
+                        loc.bottom = min(ydata - markerSizeY/2, [], 'omitnan');
                     end
                     
                 case 'patch'
@@ -786,18 +789,18 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Top
                             if translateDontScale
                                 if yReverse
-                                    ydata = ydata - nanmin(ydata) + value;
+                                    ydata = ydata - min(ydata, [], 'omitnan') + value;
                                 else
-                                    ydata = ydata - nanmax(ydata) + value;
+                                    ydata = ydata - max(ydata, [], 'omitnan') + value;
                                 end
                             else
                                 % scale to keep current bottom
                                 if yReverse
-                                    bottom = nanmax(ydata);
-                                    top = nanmin(ydata);
+                                    bottom = max(ydata, [], 'omitnan');
+                                    top = min(ydata, [], 'omitnan');
                                 else
-                                    top = nanmax(ydata);
-                                    bottom = nanmin(ydata);
+                                    top = max(ydata, [], 'omitnan');
+                                    bottom = min(ydata, [], 'omitnan');
                                 end
                                 scale = (bottom-top) / (bottom-value);
                                 ydata = (ydata - bottom) / scale + bottom;
@@ -806,47 +809,50 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Bottom
                             if translateDontScale
                                 if yReverse
-                                    ydata = ydata - nanmax(ydata) + value;
+                                    ydata = ydata - max(ydata, [], 'omitnan') + value;
                                 else
-                                    ydata = ydata - nanmin(ydata) + value;
+                                    ydata = ydata - min(ydata, [], 'omitnan') + value;
                                 end
                             else
                                 % scale to keep current top
                                 if yReverse
-                                    bottom = nanmax(ydata);
-                                    top = nanmin(ydata);
+                                    bottom = max(ydata, [], 'omitnan');
+                                    top = min(ydata, [], 'omitnan');
                                 else
-                                    top = nanmax(ydata);
-                                    bottom = nanmin(ydata);
+                                    top = max(ydata, [], 'omitnan');
+                                    bottom = min(ydata, [], 'omitnan');
                                 end
                                 scale = (bottom-top) / (value-top);
                                 ydata = (ydata - top) / scale + top;
                             end
 
                         case PositionType.VCenter
-                            lo = nanmin(ydata); hi = nanmax(ydata);
+                            lo = min(ydata, [], 'omitnan');
+                            hi = max(ydata, [], 'omitnan');
                             ydata = (ydata - (hi+lo)/2) + value;
 
                         case PositionType.Height
-                            lo = nanmin(ydata); hi = nanmax(ydata); mid = (lo+hi) / 2;
+                            lo = min(ydata, [], 'omitnan');
+                            hi = max(ydata, [], 'omitnan');
+                            mid = (lo+hi) / 2;
                             if hi - lo < eps, return, end
                             ydata = (ydata - mid) / (hi - lo) * value + mid;
 
                         case PositionType.Left
                             if translateDontScale
                                 if xReverse
-                                    xdata = xdata - nanmax(xdata) + value;
+                                    xdata = xdata - max(xdata, [], 'omitnan') + value;
                                 else
-                                    xdata = xdata - nanmin(xdata) + value;
+                                    xdata = xdata - min(xdata, [], 'omitnan') + value;
                                 end
                             else
                                 % scale to keep current right
                                 if xReverse
-                                    left = nanmax(xdata);
-                                    right = nanmin(xdata);
+                                    left = max(xdata, [], 'omitnan');
+                                    right = min(xdata, [], 'omitnan');
                                 else
-                                    left = nanmin(xdata);
-                                    right = nanmax(xdata);
+                                    left = min(xdata, [], 'omitnan');
+                                    right = max(xdata, [], 'omitnan');
                                 end
                                 scale = (left-right) / (value-right);
                                 xdata = (xdata-right) / scale + right;
@@ -855,29 +861,31 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Right
                             if translateDontScale
                                 if xReverse
-                                    xdata = xdata - nanmin(xdata) + value;
+                                    xdata = xdata - min(xdata, [], 'omitnan') + value;
                                 else
-                                    xdata = xdata - nanmax(xdata) + value;
+                                    xdata = xdata - max(xdata, [], 'omitnan') + value;
                                 end
                             else
                                 % scale to keep current left
                                 if xReverse
-                                    left = nanmax(xdata);
-                                    right = nanmin(xdata);
+                                    left = max(xdata, [], 'omitnan');
+                                    right = min(xdata, [], 'omitnan');
                                 else
-                                    left = nanmin(xdata);
-                                    right = nanmax(xdata);
+                                    left = min(xdata, [], 'omitnan');
+                                    right = max(xdata, [], 'omitnan');
                                 end
                                 scale = (left-right) / (left-value);
                                 xdata = (xdata-left) / scale + left;
                             end
 
                         case PositionType.HCenter
-                            lo = nanmin(xdata); hi = nanmax(xdata);
+                            lo = min(xdata, [], 'omitnan'); 
+                            hi = max(xdata, [], 'omitnan');
                             xdata = (xdata - (hi+lo)/2) + value;
 
                         case PositionType.Width
-                            lo = nanmin(xdata); hi = nanmax(xdata); mid = (lo+hi)/2;
+                            lo = min(xdata, [], 'omitnan');
+                            hi = max(xdata, [], 'omitnan'); mid = (lo+hi)/2;
                             if hi - lo < eps, return, end
                             xdata = (xdata - mid) / (hi - lo) * value + mid;
                     end
@@ -889,19 +897,19 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                     % update position based on new settings, including
                     % marker sizes
                     if xReverse
-                        loc.right = nanmin(xdata);
-                        loc.left = nanmax(xdata);
+                        loc.right = min(xdata, [], 'omitnan');
+                        loc.left = max(xdata, [], 'omitnan');
                     else
-                        loc.left = nanmin(xdata);
-                        loc.right = nanmax(xdata);
+                        loc.left = min(xdata, [], 'omitnan');
+                        loc.right = max(xdata, [], 'omitnan');
                     end
                     
                     if yReverse
-                        loc.bottom = nanmax(ydata);
-                        loc.top = nanmin(ydata);
+                        loc.bottom = max(ydata, [], 'omitnan');
+                        loc.top = min(ydata, [], 'omitnan');
                     else
-                        loc.top = nanmax(ydata);
-                        loc.bottom = nanmin(ydata);
+                        loc.top = max(ydata, [], 'omitnan');
+                        loc.bottom = min(ydata, [], 'omitnan');
                     end 
                    
                 case 'text'
