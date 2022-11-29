@@ -17,6 +17,7 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
         
         % indicates whether to 
         translateDontScale = true;
+        preserveAspectRatio = false;
         %data % scalar value indicating the data coordinate used when posAnchro is Data
         
         % instead of moving the whole line object, position specific points
@@ -55,6 +56,7 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
             p.addOptional('margin', 0, @(x) ischar(x) || isscalar(x) || isa(x, 'function_handle') || iscell(x));
             p.addOptional('desc', '', @isstringlike);
             p.addParameter('translateDontScale', true, @islogical);
+            p.addParameter('preserveAspectRatio', false, @islogical);
             p.addParameter('frac', [], @isscalar);
             p.addParameter('fraca', [], @isscalar);
             p.parse(varargin{:});
@@ -65,6 +67,7 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
             ai.margin = p.Results.margin;
             ai.desc = p.Results.desc;
             ai.translateDontScale = p.Results.translateDontScale;
+            ai.preserveAspectRatio = p.Results.preserveAspectRatio;
             ai.frac = p.Results.frac;
             ai.fraca = p.Results.fraca;
         end
@@ -83,11 +86,14 @@ classdef AnchorInfo < handle & matlab.mixin.Copyable
             % does this anchor specify position pos 
             import AutoAxis.PositionType;
             posvec = [info.pos]; % info is typically an array, pos is scalar
+            aspectvec = [info.preserveAspectRatio];
+            posvec_sets_height = posvec == PositionType.Height | (posvec == PositionType.Width & aspectvec);
+            posvec_sets_width = posvec == PositionType.Width | (posvec == PositionType.Height & aspectvec);
             tf = posvec == pos | posvec == pos.flip() | ...
                 (pos == PositionType.HCenter & posvec.isX() & ~posvec.specifiesSize()) | ...
                 (pos == PositionType.VCenter & posvec.isY() & ~posvec.specifiesSize()) | ...
-                ((pos == PositionType.Top || pos == PositionType.Bottom || pos == PositionType.VFraction) & posvec == PositionType.Height) | ...
-                ((pos == PositionType.Left || pos == PositionType.Right || pos == PositionType.HFraction) & posvec == PositionType.Width);
+                ((pos == PositionType.Top || pos == PositionType.Bottom || pos == PositionType.VFraction) & posvec_sets_height) | ...
+                ((pos == PositionType.Left || pos == PositionType.Right || pos == PositionType.HFraction) & posvec_sets_width);
         end
     end
         

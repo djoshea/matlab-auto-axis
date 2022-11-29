@@ -2413,6 +2413,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('orthTickAlignment', [], @(x) isempty(x) || iscellstr(x) || isstring(x));
             p.addParameter('offset', [], @(x) true); % default is axisPadding
             p.addParameter('rotation', 0, @isscalar);
+            p.addParameter('multilineSpacing', 0, @isscalar);
             p.addParameter('fontSize', ax.tickFontSize, @isscalar);
             p.addParameter('color', ax.tickColor, @(x) true);
             p.CaseSensitive = false;
@@ -2436,7 +2437,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 if useX
                     offset = {'axisPaddingBottom', 'tickLabelOffset'};
                 else
-                    offset = {'axisPaddingLeft', 'tickLabelOffset'};
+                    offset = {'', 'tickLabelOffset'};
                 end
             elseif useX
                 outside = p.Results.location.outsideY;
@@ -2447,8 +2448,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
                 
             if isempty(labels)
-                labels = sprintfc('%g', ticks);
+                labels = sprintfc("%g", ticks);
             end
+            labels = string(labels);
             
             if isempty(p.Results.tickAlignment)
                 if useX
@@ -2507,12 +2509,34 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 offset = {'axisPaddingLeft', 'tickLabelOffset'};
             end
             
-            ht = AutoAxis.allocateHandleVector(numel(ticks));
+            ht = cell(numel(ticks, 1)); % we'll concatenate later
             for i = 1:numel(ticks)
-                ht(i) = text(xtext(i), ytext(i), labels{i}, ...
-                    'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
-                    'Interpreter', 'none', 'Parent', ax.axhDraw, 'Background', 'none', Rotation=p.Results.rotation);
+                % check for newlines within ticks, which require special handling
+                if contains(labels(i), "\n")
+                    lines = split(labels(i), "\n");
+                    hlines = gobjects(numel(lines), 1);
+                    for iL = 1:numel(lines)
+                        hlines(iL) = text(xtext(i), ytext(i), lines{iL}, ...
+                        'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
+                        'Interpreter', 'none', 'Parent', ax.axhDraw, 'Background', 'none', Rotation=p.Results.rotation);
+                    end
+                    ht{i} = hlines;
+                    
+                    % add the anchor to stack them
+                    if useX
+                        ax.anchorAsStack(hlines, stacking="horizontal", spacing=p.Results.multilineSpacing);
+                        ax.anchorToDataLiteral(hlines, AutoAxis.PositionType.Center, xtext(i));
+                    else
+                        ax.anchorAsStack(hlines, stacking="vertical", spacing=p.Results.multilineSpacing);
+                        ax.anchorToDataLiteral(hlines, AutoAxis.PositionType.VCenter, ytext(i));
+                    end
+                else
+                    ht{i} = text(xtext(i), ytext(i), labels{i}, ...
+                        'HorizontalAlignment', ha{i}, 'VerticalAlignment', va{i}, ...
+                        'Interpreter', 'none', 'Parent', ax.axhDraw, 'Background', 'none', Rotation=p.Results.rotation);
+                end
             end
+            ht = cat(1, ht{:});
             set(ht, 'Clipping', 'off', 'Margin', 0.1, 'FontSize', fontSize, ...
                     'Color', color);
                 
@@ -3928,7 +3952,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                     PositionType.Bottom, offsetParallel, ...
                                     'yScaleBar flush with bottom of xScaleBar at bottom of axis');
                             else
-                                if offsetParallel 
+                                if isempty(offsetParallel)
                                     offsetParallel = 0;
                                 end
                                 ai = AnchorInfo(hrRef, PositionType.Bottom, ax.axh, ...
@@ -6926,6 +6950,30 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ax.addAnchor(ai);
         end
 
+        function anchorCenterAlign(ax, h, hto, varargin)
+            % horizontal align centers
+            p = inputParser();
+            p.addParameter('offset', 0, @(x) true);
+            p.addParameter('desc', '', @isstringlike);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.HCenter, hto, PositionType.HCenter, p.Results.offset, p.Results.desc);
+            ax.addAnchor(ai);
+        end
+
+        function anchorVerticalCenterAlign(ax, h, hto, varargin)
+            p = inputParser();
+            p.addParameter('offset', 0, @(x) true);
+            p.addParameter('desc', '', @isstringlike);
+            p.parse(varargin{:});
+            
+            import AutoAxis.AnchorInfo;
+            import AutoAxis.PositionType;
+            ai = AnchorInfo(h, PositionType.VCenter, hto, PositionType.VCenter, p.Results.offset, p.Results.desc);
+            ax.addAnchor(ai);
+        end
         
         function anchorLeftCenterAlign(ax, h, hto, varargin)
             p = inputParser();
@@ -6989,22 +7037,26 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p = inputParser();
             p.addParameter('offset', 0, @(x) true);
             p.addParameter('desc', '', @isstringlike);
+            p.addParameter('preserveAspectRatio', false, @islogical);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
             import AutoAxis.PositionType;
-            ax.addAnchor(AnchorInfo(h, PositionType.Width, [], width, p.Results.offset, p.Results.desc));
+            ax.addAnchor(AnchorInfo(h, PositionType.Width, [], width, p.Results.offset, p.Results.desc, ...
+                'preserveAspectRatio', p.Results.preserveAspectRatio));
         end
         
         function anchorHeight(ax, h, height, varargin)
             p = inputParser();
             p.addParameter('offset', 0, @(x) true);
             p.addParameter('desc', '', @isstringlike);
+            p.addParameter('preserveAspectRatio', false, @islogical);
             p.parse(varargin{:});
             
             import AutoAxis.AnchorInfo;
             import AutoAxis.PositionType;
-            ax.addAnchor(AnchorInfo(h, PositionType.Height, [], height, p.Results.offset, p.Results.desc));
+            ax.addAnchor(AnchorInfo(h, PositionType.Height, [], height, p.Results.offset, p.Results.desc, ...
+                'preserveAspectRatio', p.Results.preserveAspectRatio));
         end
 
         function anchorAsStack(ax, hvec, varargin)
@@ -7896,7 +7948,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % and actually set the position of the data
             % this will also create / update the position information
             % in the LocationCurrent for that object
-            ax.updatePositionData(info.h, info.pos, pAnchor, info.translateDontScale, info.applyToPointsWithinLine, info.frac);
+            ax.updatePositionData(info.h, info.pos, pAnchor, info.translateDontScale, info.applyToPointsWithinLine, info.frac, info.preserveAspectRatio);
             
             valid = true;
         end
@@ -7916,8 +7968,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                
             % gather info about each anchor once up front to save time
             [specifiesSize, isX] = AutoAxisUtilities.nanvec(nA);
-            translateDontScale = false(nA, 1);
-            [isHandleH, isHandleHa] = AutoAxisUtilities.falsevec(nA);
+            [isHandleH, isHandleHa, translateDontScale, preserveAspectRatio] = AutoAxisUtilities.falsevec(nA);
             posSpecified = repmat(PositionType.Top, nA, 1);
             for iA = 1:nA
                 a = anchors(iA);
@@ -7927,6 +7978,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 isHandleHa(iA) = a.isHandleHa;
                 posSpecified(iA) = a.pos;
                 translateDontScale(iA) = a.translateDontScale;
+                preserveAspectRatio(iA) = a.preserveAspectRatio;
             end
             
             % first loop through and build a matrix of direct handle
@@ -7999,9 +8051,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 % note: this may be handled by width and height additions to specifiesPosition code...
                 if ~specifiesSize(iA)
                     if isX(iA)
-                        dependencyMat(iA, :) = dependencyMat(iA, :) | (hAffectSameMat(iA, :)' & specifiesSize & isX)';
+                        dependencyMat(iA, :) = dependencyMat(iA, :) | (hAffectSameMat(iA, :)' & specifiesSize & (isX | preserveAspectRatio))';
                     else
-                        dependencyMat(iA, :) = dependencyMat(iA, :) | (hAffectSameMat(iA, :)' & specifiesSize & ~isX)';
+                        dependencyMat(iA, :) = dependencyMat(iA, :) | (hAffectSameMat(iA, :)' & specifiesSize & (~isX | preserveAspectRatio))';
                     end
                 end
 
@@ -8181,7 +8233,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             pos = LocationCurrent.getAggregateValue(ax, clocVec, posType, fraction);
         end
         
-        function success = updatePositionData(ax, hVec, posType, value, translateDontScale, applyToPointsWithinLine, fraction)
+        function success = updatePositionData(ax, hVec, posType, value, translateDontScale, applyToPointsWithinLine, fraction, preserveAspectRatio)
             % update the position of handles in vector hVec using the LocationCurrent in 
             % ax.locMap. When hVec is a vector of handles, linearly shifts
             % each object to maintain the relative positions and to
@@ -8199,10 +8251,13 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             if ~exist('fraction', 'var')
                 fraction = NaN;
             end
+            if ~exist('preserveAspectRatio', 'var') || isempty(preserveAspectRatio)
+                preserveAspectRatio = false;
+            end
 
             % set success to tru if any position details are actually set             
             if ~isscalar(hVec)
-                success = ax.setAggregatePosition(hVec, posType, value, translateDontScale, fraction);
+                success = ax.setAggregatePosition(hVec, posType, value, translateDontScale, fraction, preserveAspectRatio);
             else
                 % scalar handle, move it directly via the LocationCurrent
                 % handle 
@@ -8267,12 +8322,21 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                             
                     otherwise
                         % let LocationCurrent handle the simplified positioning of Top/Bottom/Left/Right/Width/Height
-                        success = cloc.setPosition(ax, posType, value, translateDontScale, applyToPointsWithinLine);
+                        [success, scale] = cloc.setPosition(ax, posType, value, translateDontScale, applyToPointsWithinLine);
+
+                        if success && preserveAspectRatio
+                            if posType == PositionType.Width
+                                success = cloc.setPosition(ax, PositionType.Height, cloc.height * scale, translateDontScale, applyToPointsWithinLine);
+                            end
+                            if posType == PositionType.Height
+                                success = cloc.setPosition(ax, PositionType.Width, cloc.width * scale, translateDontScale, applyToPointsWithinLine);
+                            end
+                        end 
                 end
             end
         end
 
-        function success = setAggregatePosition(ax, hVec, posType, value, translateDontScale, fraction)
+        function success = setAggregatePosition(ax, hVec, posType, value, translateDontScale, fraction, preserveAspectRatio)
             % here we linearly scale / translate the bounding box
             % in order to maintain internal anchoring, scaling should
             % be done before any "internal" anchorings are computed,
@@ -8281,7 +8345,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % note that this will recursively call updatePositionData, so that
             % the corresponding LocationCurrent objects will be updated
             import AutoAxis.PositionType
-                
+ 
             if posType == PositionType.Height
                 % scale everything vertically, but keep existing
                 % vcenter (of bounding box) in place
@@ -8311,6 +8375,16 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                    ax.updatePositionData(h, PositionType.Top, newPosFn(t));
                 end
             
+                if preserveAspectRatio
+                    oldRight = ax.getCurrentPositionData(hVec, PositionType.Right);
+                    oldLeft = ax.getCurrentPositionData(hVec, PositionType.Left);
+                    oldWidth = abs(oldRight - oldLeft);
+
+                    newWidth = value / oldHeight * oldWidth;
+                    ax.setAggregatePosition(hVec, PositionType.Width, newWidth, translateDontScale, fraction, false);
+                end
+
+
             elseif posType == PositionType.Width
                 % scale everything horizontally, but keep existing
                 % hcenter (of bounding box) in place if anchored
@@ -8331,6 +8405,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                     newPosFn = @(p) (p-oldLeft) * (value / oldWidth) + newLeft;
                     newWidthFn = @(w) w * value / oldWidth;
                 end
+
                 % loop over each object and shift its position by offset
                 for i = 1:numel(hVec)
                    h = hVec(i);
@@ -8338,6 +8413,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                    w = ax.getCurrentPositionData(h, PositionType.Width);
                    ax.updatePositionData(h, PositionType.Width, newWidthFn(w));
                    ax.updatePositionData(h, PositionType.Left, newPosFn(l));
+                end
+
+                if preserveAspectRatio
+                    oldTop = ax.getCurrentPositionData(hVec, PositionType.Top);
+                    oldBottom = ax.getCurrentPositionData(hVec, PositionType.Bottom);
+                    oldHeight = abs(oldTop - oldBottom);
+                
+                    newHeight = value / oldWidth * oldHeight;
+                    ax.setAggregatePosition(hVec, PositionType.Height, newHeight, translateDontScale, fraction, false);
                 end
                 
             elseif translateDontScale

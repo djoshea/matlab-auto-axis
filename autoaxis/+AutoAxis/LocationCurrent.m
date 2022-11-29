@@ -399,12 +399,13 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             
         end
         
-        function success = setPosition(loc, aa, posType, value, translateDontScale, applyToPointsWithinLine)
+        function [success, scale] = setPosition(loc, aa, posType, value, translateDontScale, applyToPointsWithinLine)
             xDataToPoints = aa.xDataToPoints;
             yDataToPoints = aa.yDataToPoints;
 %             axh_base = aa.axh;  % the axis this AutoAxis is installed on
             xReverse = aa.xReverse;
             yReverse = aa.yReverse;
+            scale = NaN;
 
             import AutoAxis.*;
             h = loc.h; %#ok<*PROP>
@@ -413,6 +414,8 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
             if ~exist('applyToPointsWithinLine', 'var')
                 applyToPointsWithinLine = [];
             end
+
+            scale = NaN;
 
             success = false;
             switch type
@@ -505,6 +508,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                                     return
                                 end % can't change height of single point
                                 ydata = (ydata - mid) / (hi - lo + markerSizeY) * value + mid;
+                                scale = value/(hi - lo + markerSizeY);
 
                             case PositionType.Left
                                 if translateDontScale
@@ -555,6 +559,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                                 if hi - lo < eps, return, end
                                 if numel(xdata) == 1, return, end % can't change width of single point
                                 xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
+                                scale = value/(hi - lo + markerSizeX);
 
                             otherwise
                                 error('PositionType %s not supported for line', posType);
@@ -697,6 +702,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                                 return
                             end % can't change height of single point
                             ydata = (ydata - mid) / (hi - lo + markerSizeY) * value + mid;
+                            scale = value/(hi - lo + markerSizeY);
 
                         case PositionType.Left
                             if translateDontScale
@@ -750,6 +756,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             if hi - lo < eps, return, end
                             if numel(xdata) == 1, return, end % can't change width of single point
                             xdata = (xdata - mid) / (hi - lo + markerSizeX) * value + mid;
+                            scale = value/(hi - lo + markerSizeX);
                             
                        otherwise
                                 error('PositionType %s not supported for applyToPointsWithinLine', posType);
@@ -837,6 +844,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             mid = (lo+hi) / 2;
                             if hi - lo < eps, return, end
                             ydata = (ydata - mid) / (hi - lo) * value + mid;
+                            scale = value/(hi - lo);
 
                         case PositionType.Left
                             if translateDontScale
@@ -888,6 +896,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             hi = max(xdata, [], 'omitnan'); mid = (lo+hi)/2;
                             if hi - lo < eps, return, end
                             xdata = (xdata - mid) / (hi - lo) * value + mid;
+                            scale = value/(hi - lo);
                     end
 
                     data = [xdata, ydata];
@@ -1034,6 +1043,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             
                         case PositionType.Height
                             % maintain vertical center
+                            scale = value / p(4);
                             p(2) = (p(2) + p(4) / 2) - value/2;
                             p(4) = value;
                             
@@ -1080,6 +1090,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                             
                         case PositionType.Width
                             % maintain horizontal center
+                            scale = value/p(3);
                             p(1) = (p(1) + p(3)/2) - value/2;
                             p(3) = value;
                             
@@ -1184,6 +1195,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Height
                             % maintain vertical center
                             yext = mean(yext) + [-value/2 value/2];
+                            scale = value / abs(yext(2) - yext(1));
                             
                         case PositionType.Right
                             if translateDontScale
@@ -1223,6 +1235,7 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
                         case PositionType.Width
                             % maintain horizontal center
                             xext = mean(xext) + [-value/2 value/2];
+                            scale = value / abs(xext(2) - xext(1));
                             
                     end
                     
