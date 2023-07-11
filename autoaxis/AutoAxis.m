@@ -2675,6 +2675,8 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('bridgeLabelFontSize', ax.labelFontSize, @isscalar);
             p.addParameter('bridgeLabelFontWeight', 'normal', @isstringlike);
             p.addParameter('bridgeLabelOffset', 'tickLabelOffset', @(x) true);
+            p.addParameter('bridgeLabelOffsetLateral', 0, @(x) true);
+            
             p.addParameter('extendToLimits', false, @islogical); % false = align edge of bridge with a tick; true = draw stem all the way across
             
             p.CaseSensitive = false;
@@ -2685,6 +2687,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             otherSide = p.Results.otherSide;
             tickLabelOffset = p.Results.tickLabelOffset;
             bridgeLabelOffset = p.Results.bridgeLabelOffset;
+            bridgeLabelOffsetLateral = p.Results.bridgeLabelOffsetLateral;
 
             if ~isempty(p.Results.tick)
                 ticks = p.Results.tick;
@@ -3117,6 +3120,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                     'xBridgeLabel below bridge');
                             end
                             ax.addAnchor(ai);
+
+                            if bridgeLabelOffsetLateral ~= 0
+                                ax.anchorToDataLiteral(hblRef, PositionType.HCenter, bridgeLabel_x, offset=bridgeLabelOffsetLateral, ...
+                                    desc="xBridgeLabel lateral offset");
+                            end
                         end
                        
                     else
@@ -3158,6 +3166,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                     'xBridgeLabel above tick labels');
                             end
                             ax.addAnchor(ai);
+
+                            if bridgeLabelOffsetLateral ~= 0
+                                ax.anchorToDataLiteral(hblRef, PositionType.HCenter, bridgeLabel_x, offset=bridgeLabelOffsetLateral, ...
+                                    desc="xBridgeLabel lateral offset");
+                            end
                         end
                     end
 
@@ -3203,6 +3216,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                     'yBridgeLabel left of bridge');
                             end
                             ax.addAnchor(ai);
+
+                            if bridgeLabelOffsetLateral ~= 0
+                                ax.anchorToDataLiteral(hblRef, PositionType.VCenter, bridgeLabel_y, offset=bridgeLabelOffsetLateral, ...
+                                    desc="yBridgeLabel lateral offset");
+                            end
                         end
                         
                     else
@@ -3244,6 +3262,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                     'yBridgeLabel right of bridge');
                             end
                             ax.addAnchor(ai);
+
+                            if bridgeLabelOffsetLateral ~= 0
+                                ax.anchorToDataLiteral(hblRef, PositionType.VCenter, bridgeLabel_y, offset=bridgeLabelOffsetLateral, ...
+                                    desc="yBridgeLabel lateral offset");
+                            end
                         end
                     end
                 end
@@ -3922,7 +3945,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                             ai = AnchorInfo(htRef, PositionType.Left, hrRef, PositionType.Left, p.Results.scaleBarLabelLateralOffset, ...
                                 'xScaleBarLabel flush with left edge of xScaleBar');
                         elseif textAlign == "center"
-                            ai = AnchorInfo(htRef, PositionType.Center, hrRef, PositionType.Center, p.Results.scaleBarLabelLateralOffset, ...
+                            ai = AnchorInfo(htRef, PositionType.HCenter, hrRef, PositionType.HCenter, p.Results.scaleBarLabelLateralOffset, ...
                                 'xScaleBarLabel at center of xScaleBar');
                         elseif textAlign == "right"
                             ai = AnchorInfo(htRef, PositionType.Right, hrRef, PositionType.Right, p.Results.scaleBarLabelLateralOffset, ...
