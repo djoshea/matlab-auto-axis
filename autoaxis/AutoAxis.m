@@ -74,6 +74,9 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         % Note that interval location and label location is determined by
         % markerDiameter
         intervalThickness % AutoAxis_IntervalThickness [0.08];
+
+        interval_vcenterWithMarkers logical = true;
+        interval_addSpaceForScaleBar logical = true;
         
         % this controls both the gap between tick lines and tick labels,
         % and between tick labels and axis label offset
@@ -4045,6 +4048,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             p.addParameter('textOffsetY', 0, @isscalar);
             p.addParameter('textOffsetX', 0, @isscalar);
             p.addParameter('addSpaceForScaleBar', true, @islogical);
+            p.addParameter('manualVerticalOffset', [], @(x) true);
             p.addParameter('vcenterWithMarkers', true, @islogical);
             p.addParameter('horizontalAlignment', 'center', @ischar);
             p.addParameter('verticalAlignment', 'top', @ischar);
@@ -4105,42 +4109,29 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             ai = AnchorInfo(hri, PositionType.Height, [], 'intervalThickness', 0, ...
                 sprintf('interval ''%s'' thickness', label));
             ax.addAnchor(ai);
-            
-            % we'd like the VCenters of the markers (height = markerDiameter)
-            % to match the VCenters of the intervals (height =
-            % intervalThickness). Marker tops sit at axisPaddingBottom from the
-            % bottom of the axis. Note that this assumes markerDiameter >
-            % intervalThickness.
+
+            % defer to compute_interval_offset to do the computation so that this can be updated automatically
             if p.Results.vcenterWithMarkers
-                if p.Results.addSpaceForScaleBar
-                    offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.scaleBarThickness + ax.markerHeight/2;
-                else
-                    offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.markerHeight/2;
-                end
-                ai = AnchorInfo(hri, PositionType.VCenter, ax.axh, ...
-                    PositionType.Bottom, offsetBottom, ...
-                    sprintf('interval ''%s'' below axis (vcenter)', label));
-            else
-                % simply align top
-                if p.Results.addSpaceForScaleBar
-                    offsetBottom = @(ax,varargin) ax.axisPaddingBottom + ax.scaleBarThickness;
-                else
-                    offsetBottom = 'axisPaddingBottom';
-                end
-                ai = AnchorInfo(hri, PositionType.Top, ax.axh, ...
-                    PositionType.Bottom, offsetBottom, ...
-                    sprintf('interval ''%s'' below axis', label));
+                ax.interval_vcenterWithMarkers = true;
             end
+            if p.Results.addSpaceForScaleBar
+                ax.interval_addSpaceForScaleBar = true;
+            end
+            
+            if ~isempty(p.Results.manualVerticalOffset)
+                offset = p.Results.manualVerticalOffset;
+            else
+                offset = @(ax, varargin) ax.compute_interval_offset(varargin{:});
+            end
+            ai = AnchorInfo(hri, PositionType.VCenter, ax.axh, ...
+                PositionType.Bottom, offset, ...
+                sprintf('interval ''%s'' below axis (vcenter)', label));
             ax.addAnchor(ai);
 
             % add custom or default y offset from bottom of rectangle
             textOffsetY = p.Results.textOffsetY;
             pos = PositionType.verticalAlignmentToPositionType(p.Results.verticalAlignment);
-            if p.Results.addSpaceForScaleBar
-                offsetBottom = @(ax, varargin) ax.axisPaddingBottom + ax.scaleBarThickness + ax.intervalThickness + ax.markerLabelOffset + textOffsetY;
-            else
-                offsetBottom = @(ax, varargin) ax.axisPaddingBottom + ax.intervalThickness + ax.markerLabelOffset + textOffsetY;
-            end
+            offsetBottom = @(ax, varargin) ax.compute_interval_label_offset_from_axis(textOffsetY);
             ai = AnchorInfo(ht, pos, ...
                 ax.axh, PositionType.Bottom, offsetBottom, ...
                 sprintf('interval label ''%s'' below axis', label));
@@ -4176,6 +4167,38 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             
             % put in top layer
             ax.addHandlesToCollection('intervals', hlist);
+        end
+
+        function offset = compute_interval_offset(ax, varargin)
+            % used by above to allow automatic updating of vertical offsets
+            % we'd like the VCenters of the markers (height = markerDiameter)
+            % to match the VCenters of the intervals (height =
+            % intervalThickness). Marker tops sit at axisPaddingBottom from the
+            % bottom of the axis. Note that this assumes markerDiameter >
+            % intervalThickness.
+            if ax.interval_vcenterWithMarkers
+                % align v center to where the markers v center will be
+                if ax.interval_addSpaceForScaleBar
+                    offset = ax.axisPaddingBottom + ax.scaleBarThickness + ax.markerHeight/2;
+                else
+                    offset = ax.axisPaddingBottom + ax.markerHeight/2;
+                end
+            else
+                % simply align top (include intervalthicknesss/2 since we're positioning the intervals v center, not the top)
+                if ax.interval_addSpaceForScaleBar
+                    offset = ax.axisPaddingBottom + ax.scaleBarThickness + ax.intervalThickness/2;
+                else
+                    offset = ax.axisPaddingBottom + ax.intervalThickness/2;
+                end
+            end
+        end
+
+        function offset = compute_interval_label_offset_from_axis(ax, textOffsetY)
+            if ax.interval_addSpaceForScaleBar
+                offset = ax.axisPaddingBottom + ax.scaleBarThickness + ax.intervalThickness + ax.markerLabelOffset + textOffsetY;
+            else
+                offset = ax.axisPaddingBottom + ax.intervalThickness + ax.markerLabelOffset + textOffsetY;
+            end
         end
         
         function [hl, ht] = addLabeledSpan(ax, varargin)
@@ -7944,7 +7967,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             end
 
             % add margin to anchor in the correct direction if possible
-            if ~isempty(info.ha) && ~isempty(info.margin) && ~isnan(info.margin)
+            if ~isempty(info.ha) && ~isempty(info.margin) && ~isequal(info.margin, NaN)
                 offset = 0;
                 
                 if info.posa == PositionType.Top
