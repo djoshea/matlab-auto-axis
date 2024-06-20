@@ -2848,7 +2848,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 bridgeHi = lims(2);
             end
             separateTicks = ticks(loInd:hiInd);
-            
+            bridgeIncludesAtLeastOneEdgeTick = mergeLoTick || mergeHiTick;
                 
             % generate line, ignore length here, we'll anchor that later
             manPos = p.Results.manualPositionOrthogonalAxis;
@@ -3091,10 +3091,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                         
                         % anchor the height of the bridge which includes
                         % the outermost ticks
-                        ai = AnchorInfo(hbRef, PositionType.Height, ...
-                            [], 'tickLength', 0, 'xTickBridge height for outermost ticks');
-                        ax.addAnchor(ai);
-                        
+                        if bridgeIncludesAtLeastOneEdgeTick
+                            ai = AnchorInfo(hbRef, PositionType.Height, ...
+                                [], 'tickLength', 0, 'xTickBridge height for outermost ticks');
+                            ax.addAnchor(ai);
+                        end
+
                         if ~isempty(ht)
                             % anchor ticks
                             ai = AnchorInfo(htRef, PositionType.Height, ...
@@ -3137,9 +3139,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                 PositionType.Top, offset, 'xTickBridge above axis');
                             ax.addAnchor(ai);
                         end
-                        ai = AnchorInfo(hbRef, PositionType.Height, ...
-                            [], 'tickLength', 0, 'xTickBridge height for outermost ticks');
-                        ax.addAnchor(ai);
+                        if bridgeIncludesAtLeastOneEdgeTick
+                            ai = AnchorInfo(hbRef, PositionType.Height, ...
+                                [], 'tickLength', 0, 'xTickBridge height for outermost ticks');
+                            ax.addAnchor(ai);
+                        end
                         
                         if ~isempty(ht)
                             % anchor ticks
@@ -3185,7 +3189,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                 ax.axh, PositionType.Left, offset, 'yTickBridge left of axis');
                             ax.addAnchor(ai);
                         end
-                        if tickMarks
+                        if bridgeIncludesAtLeastOneEdgeTick
                             ai = AnchorInfo(hbRef, PositionType.Width, ...
                                 [], 'tickLength', 0, 'yTickBridge width for outermost ticks');
                             ax.addAnchor(ai);
@@ -3233,9 +3237,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                                 ax.axh, PositionType.Right, offset, 'yTickBridge right of axis');
                             ax.addAnchor(ai);
                         end
-                        ai = AnchorInfo(hbRef, PositionType.Width, ...
-                            [], 'tickLength', 0, 'yTickBridge width for outermost ticks');
-                        ax.addAnchor(ai);
+                        if bridgeIncludesAtLeastOneEdgeTick
+                            ai = AnchorInfo(hbRef, PositionType.Width, ...
+                                [], 'tickLength', 0, 'yTickBridge width for outermost ticks');
+                            ax.addAnchor(ai);
+                        end
                         
                         if ~isempty(ht)
                             % anchor ticks
@@ -8391,6 +8397,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             % note that this will recursively call updatePositionData, so that
             % the corresponding LocationCurrent objects will be updated
             import AutoAxis.PositionType
+            success = false;
  
             if posType == PositionType.Height
                 % scale everything vertically, but keep existing
@@ -8400,6 +8407,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 oldTop = ax.getCurrentPositionData(hVec, PositionType.Top);
                 oldBottom = ax.getCurrentPositionData(hVec, PositionType.Bottom);
                 oldHeight = abs(oldTop - oldBottom);
+                if oldHeight == 0
+                    warning('Asked to set PositionType.Height for handles with height 0.')
+                    return;
+                end
                 if ax.yReverse
                     newTop = (oldTop+oldBottom) / 2 + value/2;
                         % build affine scaling fns for inner objects
@@ -8439,6 +8450,10 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 oldRight = ax.getCurrentPositionData(hVec, PositionType.Right);
                 oldLeft = ax.getCurrentPositionData(hVec, PositionType.Left);
                 oldWidth = abs(oldRight - oldLeft);
+                if oldWidth == 0
+                    warning('Asked to set PositionType.Width for handles with width 0.')
+                    return;
+                end
                 
                 if ax.xReverse
                     newRight = (oldRight+oldLeft) / 2 - value/2;
