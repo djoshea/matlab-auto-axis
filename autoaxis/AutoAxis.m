@@ -7260,7 +7260,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 ax.axh.MinorGridAlpha = 1;
                 ax.axh.MinorGridLineStyle = '-';
                 
-                figh.InvertHardcopy = 'off';
+                %figh.InvertHardcopy = 'off';
                 % other properties will be set in deferred updates
             else
 %                 axis(ax.axh, 'off');
