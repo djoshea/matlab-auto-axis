@@ -1111,10 +1111,25 @@ classdef LocationCurrent < handle & matlab.mixin.Copyable
 
                     if strcmp(type, 'axes')
                         % convert data units back to figure normalized units to position other axis
-                        hUnits = h.Units;
-                        h.Units = 'normalized';
+                        if isa(h.Parent, 'matlab.graphics.layout.TiledChartLayout')
+                            % MATLAB refuses to set Position on a layout child; the
+                            % layout owns the placement. Warn here rather than let
+                            % MATLAB's contextless warning fire from inside AutoAxis,
+                            % and leave success false so we do not cache a position
+                            % that was never applied.
+                            warning('AutoAxis:CannotPositionTiledLayoutChild', ...
+                                'Cannot anchor an axes whose parent is a TiledChartLayout, since the layout controls its position. Parent the axes to the figure instead.');
+                            return;
+                        end
 
                         pnorm = aa.convertDataUnitsToNormalized(p, false);
+                        % pnorm is normalized against the figure, but Position is
+                        % interpreted in h's own parent frame; these differ when h
+                        % lives in a uipanel or similar container
+                        pnorm = AutoAxis.figureNormalizedToContainerNormalized(h, pnorm);
+
+                        hUnits = h.Units;
+                        h.Units = 'normalized';
                         h.Position = pnorm;
                         h.Units = hUnits;
                     else

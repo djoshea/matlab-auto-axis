@@ -171,6 +171,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         enableUpdate = true; % used to prevent unncessary updates mid-adding things to the plot
         
         axisMargin_I % holds data for axis margin
+        warnedAxisMarginIgnored = false; % so the tiled layout notice is issued only once per axis
         requiresReconfigure = true;
         installedCallbacks = false;
         hListeners = [];
@@ -350,6 +351,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end 
         
         function set.axisMargin(ax, v)
+            if ~isempty(v) && ~ax.warnedAxisMarginIgnored && ...
+                    isa(get(ax.axh, 'Parent'), 'matlab.graphics.layout.TiledChartLayout')
+                ax.warnedAxisMarginIgnored = true;
+                warning('AutoAxis:AxisMarginIgnoredInTiledLayout', ...
+                    ['axisMargin is ignored while the axis lives in a TiledChartLayout: the grid pins the axis position ' ...
+                     'and ignores LooseInset, so axisMargin reports the margin the layout leaves instead. ' ...
+                     'Adjust the layout Padding and TileSpacing, or parent the axis to the figure, to control it.']);
+            end
+
             if numel(v) == 0
                 ax.axisMargin_I = [];
             elseif numel(v) == 1
@@ -362,6 +372,15 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
         end
         
         function v = get.axisMargin(ax)
+            % inside a TiledChartLayout the margin is not ours to choose: the grid
+            % pins the axis Position and ignores LooseInset entirely, so report what
+            % the layout actually leaves around this tile instead of what we would
+            % have asked for
+            v = AutoAxis.tiledLayoutTileMargin(ax.axh);
+            if ~isempty(v)
+                return;
+            end
+
             if isempty(ax.axisMargin_I)
                 v = ax.getAxisMarginDefaults();
             else
@@ -690,7 +709,175 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
               fig = get(fig,'Parent');
             end
         end
-        
+
+        function [origin, sz] = containerFrameInFigurePixels(c)
+            % Describe, in figure pixels, the coordinate frame that c's children
+            % express their Position in.
+            %   origin : [x y] offset of that frame within the figure
+            %   sz     : [w h] size of that frame
+            % A child's position in figure pixels is then origin + childPos(1:2), with
+            % childPos read in pixels. This is needed because a child of a
+            % TiledChartLayout reports its Position purely within the layout's outer
+            % box, with no trace of where that box sits in the figure, and because
+            % getpixelposition(h, true) does not compose through a layout ancestor.
+
+            if isempty(c) || isa(c, 'matlab.ui.Figure')
+                % the figure is the root frame, so children are already in figure coords
+                origin = [0 0];
+                if isempty(c)
+                    sz = [NaN NaN];
+                else
+                    cunits = get(c, 'Units');
+                    set(c, 'Units', 'pixels');
+                    figPos = get(c, 'Position');
+                    set(c, 'Units', cunits);
+                    sz = figPos(3:4);
+                end
+                return;
+            end
+
+            [pOrigin, pSz] = AutoAxis.containerFrameInFigurePixels(get(c, 'Parent'));
+
+            if isa(c, 'matlab.graphics.layout.TiledChartLayout')
+                % children of a layout position themselves within its OuterPosition box.
+                % Compute that box arithmetically from the normalized value rather than
+                % switching c.Units to pixels: a TiledChartLayout reports a stale
+                % OuterPosition for one drawnow after its Units change, which would
+                % silently return normalized numbers where pixels were expected.
+                if strcmp(get(c, 'Units'), 'normalized')
+                    outerPos = get(c, 'OuterPosition');
+                    origin = pOrigin + outerPos(1:2) .* pSz;
+                    sz = outerPos(3:4) .* pSz;
+                else
+                    cunits = get(c, 'Units');
+                    set(c, 'Units', 'pixels');
+                    drawnow; % see stale OuterPosition note above
+                    outerPos = get(c, 'OuterPosition');
+                    set(c, 'Units', cunits);
+                    origin = pOrigin + outerPos(1:2) - 1; % pixel positions are 1-based
+                    sz = outerPos(3:4);
+                end
+            else
+                % uipanel / uitab / uicontainer and friends: ordinary containers whose
+                % children position themselves within the inner area, which is inset
+                % from Position by the border and title. Using Position here would be
+                % off by the border width.
+                cunits = get(c, 'Units');
+                set(c, 'Units', 'pixels');
+                if isprop(c, 'InnerPosition')
+                    cPos = get(c, 'InnerPosition');
+                else
+                    cPos = get(c, 'Position');
+                end
+                set(c, 'Units', cunits);
+                origin = pOrigin + cPos(1:2) - 1; % pixel positions are 1-based
+                sz = cPos(3:4);
+            end
+        end
+
+        function margin = tiledLayoutTileMargin(axh)
+            % Report, in centimeters as [left bottom right top], the space a
+            % TiledChartLayout actually leaves around axh's tile. Returns [] when axh
+            % is not a layout child, in which case the caller should fall back to its
+            % own margin.
+            %
+            % A layout ignores LooseInset outright: it pins each axis Position from
+            % the grid and lets the decorations overflow, so the only honest thing to
+            % do is measure what room the grid happens to leave. The geometry needed
+            % is all queryable, since the layout InnerPosition is exactly the union of
+            % the tile Position rectangles:
+            %
+            %   outer edges of the grid : InnerPosition inset within OuterPosition
+            %   between two tiles       : the uniform gap, which each of the two
+            %                             neighbouring tiles is treated as owning half of
+            %
+            % Everything is computed as differences, so it does not matter that these
+            % values live in the layout's parent frame rather than the figure frame.
+
+            margin = [];
+            if isempty(axh) || ~isvalid(axh)
+                return;
+            end
+            t = get(axh, 'Parent');
+            if ~isa(t, 'matlab.graphics.layout.TiledChartLayout')
+                return;
+            end
+
+            % tile row and column. Layout.Tile is char for the side tiles ('north' and
+            % friends), which sit outside the grid and get the outer margin on all sides
+            gridSize = get(t, 'GridSize');
+            nr = gridSize(1);
+            nc = gridSize(2);
+            tileSpec = axh.Layout.Tile;
+            span = axh.Layout.TileSpan;
+            if isnumeric(tileSpec) && isscalar(tileSpec)
+                row = floor((tileSpec - 1) / nc) + 1; % tiles are numbered row major
+                col = mod(tileSpec - 1, nc) + 1;
+            else
+                row = 1; col = 1; span = [nr nc];
+            end
+
+            % layout inner and outer boxes, in the layout parent's pixels. Read these
+            % normalized and scale by hand rather than switching t.Units, which reports
+            % a stale OuterPosition for one drawnow after the units change
+            if ~strcmp(get(t, 'Units'), 'normalized')
+                return; % unusual; fall back to the caller's own margin rather than guess
+            end
+            [~, parentSz] = AutoAxis.containerFrameInFigurePixels(get(t, 'Parent'));
+            if any(~isfinite(parentSz)) || any(parentSz <= 0)
+                return;
+            end
+            innerPos = get(t, 'InnerPosition') .* [parentSz parentSz];
+            outerPos = get(t, 'OuterPosition') .* [parentSz parentSz];
+
+            % this tile's size in the same pixels; all tiles in the grid are uniform
+            axUnits = get(axh, 'Units');
+            set(axh, 'Units', 'pixels');
+            tilePos = get(axh, 'Position');
+            set(axh, 'Units', 'centimeters');
+            tilePosCm = get(axh, 'Position');
+            set(axh, 'Units', axUnits);
+            if tilePos(3) <= 0 || tilePos(4) <= 0
+                return;
+            end
+
+            % Gaps between adjacent tiles, shared evenly by the two tiles either side.
+            % With n tiles across, s of them spanned by this axis, single tile size w
+            % and gap g, the grid and this axis give
+            %   inner = n*w + (n-1)*g        and        tile = s*w + (s-1)*g
+            % which solve for g. A tile spanning the full grid says nothing about the
+            % gap, but then both of its edges are outer edges and the gap is unused.
+            gap = [0 0]; % [horizontal vertical]
+            n = [nc nr];
+            s = max(span([2 1]), 1); % TileSpan is [rows cols], we want [cols rows]
+            for iDim = 1:2
+                denom = (n(iDim) - 1) - n(iDim)*(s(iDim) - 1)/s(iDim);
+                if n(iDim) > 1 && abs(denom) > 1e-9
+                    gap(iDim) = max((innerPos(2+iDim) - n(iDim)*tilePos(2+iDim)/s(iDim)) / denom, 0);
+                end
+            end
+            hGap = gap(1);
+            vGap = gap(2);
+
+            outLeft   = innerPos(1) - outerPos(1);
+            outBottom = innerPos(2) - outerPos(2);
+            outRight  = (outerPos(1) + outerPos(3)) - (innerPos(1) + innerPos(3));
+            outTop    = (outerPos(2) + outerPos(4)) - (innerPos(2) + innerPos(4));
+
+            % row 1 is the top row, and y grows upward, so row 1 borders the top margin
+            lastRow = row + span(1) - 1;
+            lastCol = col + span(2) - 1;
+            if col == 1,       left   = outLeft;   else, left   = hGap/2; end
+            if lastCol >= nc,  right  = outRight;  else, right  = hGap/2; end
+            if lastRow >= nr,  bottom = outBottom; else, bottom = vGap/2; end
+            if row == 1,       top    = outTop;    else, top    = vGap/2; end
+
+            % pixels to centimeters, calibrated off the axis itself
+            sx = tilePosCm(3) / tilePos(3);
+            sy = tilePosCm(4) / tilePos(4);
+            margin = max([left*sx, bottom*sy, right*sx, top*sy], 0);
+        end
+
 %         function p = getPanelForFigure(figh)
 %             % return a handle to the panel object associated with figure
 %             % figh or [] if not associated with a panel
@@ -850,7 +1037,7 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             lc = get(ax.axh, 'DefaultLineColor');
             
             % these should match AutoAxisDefaults.reset() values
-            szDiffTick = AutoAxis.getenvNum('AutoAxis_SmallFontSizeDelta', 1) * scale;
+            szDiffTick = AutoAxis.getenvNum('AutoAxis_SmallFontSizeDelta', 1/scale) * scale;
             ax.tickLength = AutoAxis.getenvNum('AutoAxis_TickLength', 0.05) * scale;
             ax.tickLineWidth = AutoAxis.getenvNum('AutoAxis_TickLineWidth', 0.5) * scale; % not in centimeters, this is stroke width
             ax.markerWidth = AutoAxis.getenvNum('AutoAxis_MarkerWidth', 2*2.54/72) * scale;
@@ -7715,8 +7902,12 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             axUnits = get(axh, 'Units');
 
             set(axh,'Units','centimeters');
-            set(axh, 'LooseInset', ax.axisMargin);
-            
+            if ~isa(get(axh, 'Parent'), 'matlab.graphics.layout.TiledChartLayout')
+                % a layout ignores LooseInset, and axisMargin is a readout of the
+                % layout's own margins there rather than a request
+                set(axh, 'LooseInset', ax.axisMargin);
+            end
+
             axlim = axis(axh);
             axwidth = diff(axlim(1:2));
             axheight = diff(axlim(3:4));
@@ -7801,8 +7992,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
             axUnits = get(axh, 'Units');
 
             set(axh,'Units','centimeters');
-            set(axh, 'LooseInset', ax.axisMargin);
-            
+            if ~isa(get(axh, 'Parent'), 'matlab.graphics.layout.TiledChartLayout')
+                % see updateAxisScaling: LooseInset is inert inside a layout
+                set(axh, 'LooseInset', ax.axisMargin);
+            end
+
             set(axh, 'Units', axUnits);
         end
         
@@ -8672,9 +8866,11 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 error('Input must be an axis handle');
             end
 
-            % Get position of axis in pixels
+            % Get position of axis in pixels, and in its own units, so that we can
+            % convert between the two arithmetically at the end of this function
 
             currunit = get(h, 'units');
+            axisPosUnits = get(h, 'Position');
             set(h, 'units', 'pixels');
             axisPos = get(h, 'Position');
             set(h, 'Units', currunit);
@@ -8726,11 +8922,21 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 end
             end
 
-            % Convert plot box position to the units used by the axis
-            temp = axes('Units', 'Pixels', 'Position', pos, 'Visible', 'off', 'parent', get(h, 'parent'));
-            set(temp, 'Units', currunit);
-            pos = get(temp, 'position');
-            delete(temp);
+            % Convert plot box position from pixels into the units used by the axis.
+            % Both are expressed in the parent container's frame, and every position
+            % unit system is affine in pixels within that frame, so we calibrate the
+            % mapping off the axis's own position rather than measuring a temporary
+            % axis. A temporary axis silently gives the wrong answer when the parent
+            % of h is a TiledChartLayout: the layout ignores the requested Position
+            % and lays the temp axis out as a new tile instead.
+            % Taking the delta from axisPos rather than scaling pos directly cancels
+            % the fact that pixel positions are 1-based while cm/normalized are
+            % 0-based, and stays exact when currunit is already 'pixels'.
+            sx = axisPosUnits(3) / axisPos(3); % units per pixel, horizontal
+            sy = axisPosUnits(4) / axisPos(4); % units per pixel, vertical
+            pos = [axisPosUnits(1) + (pos(1) - axisPos(1)) * sx, ...
+                   axisPosUnits(2) + (pos(2) - axisPos(2)) * sy, ...
+                   pos(3) * sx, pos(4) * sy];
         end
     
         function [pos, outerPos] = axisPosInNormalizedFigureUnits(axh)
@@ -8742,12 +8948,67 @@ classdef AutoAxis < handle & matlab.mixin.Copyable
                 error('Input must be an axis handle');
             end
 
-            % Get position of axis in pixels
+            % Both outputs are normalized against the figure, NOT against axh's own
+            % parent. These differ whenever axh lives inside a TiledChartLayout or a
+            % uipanel, since such a child reports its Position only within its
+            % container's box. Callers rely on this being a single figure-wide frame so
+            % that positions of objects in different containers can be compared.
+
+            parent = get(axh, 'Parent');
             currunit = get(axh, 'units');
-            set(axh, 'Units', 'normalized');
+
+            if isa(parent, 'matlab.ui.Figure')
+                % common case: the axis frame is already the figure frame
+                set(axh, 'Units', 'normalized');
+                pos = AutoAxis.plotboxpos(axh);
+                outerPos = get(axh, 'OuterPosition');
+                set(axh, 'Units', currunit);
+                return;
+            end
+
+            % work in pixels, where the container frames compose by simple addition
+            set(axh, 'Units', 'pixels');
             pos = AutoAxis.plotboxpos(axh);
             outerPos = get(axh, 'OuterPosition');
             set(axh, 'Units', currunit);
+
+            origin = AutoAxis.containerFrameInFigurePixels(parent);
+            [~, figSz] = AutoAxis.containerFrameInFigurePixels(AutoAxis.getParentFigure(axh));
+
+            pos = [(pos(1:2) + origin) ./ figSz, pos(3:4) ./ figSz];
+            outerPos = [(outerPos(1:2) + origin) ./ figSz, outerPos(3:4) ./ figSz];
+        end
+
+        function pos = figureNormalizedToContainerNormalized(h, pos)
+            % Inverse of the frame composition done by axisPosInNormalizedFigureUnits:
+            % take a position normalized against the figure and express it normalized
+            % against h's own parent, which is the frame h.Position is interpreted in.
+
+            parent = get(h, 'Parent');
+            if isa(parent, 'matlab.ui.Figure')
+                return; % already in the right frame
+            end
+
+            origin = AutoAxis.containerFrameInFigurePixels(parent);
+            [~, figSz] = AutoAxis.containerFrameInFigurePixels(AutoAxis.getParentFigure(h));
+
+            % figure normalized -> figure pixels -> container pixels
+            posPx = [pos(1:2) .* figSz - origin, pos(3:4) .* figSz];
+
+            % container pixels -> container normalized, calibrated off h itself so that
+            % we do not need to know the container's frame size in normalized terms
+            hunits = get(h, 'Units');
+            set(h, 'Units', 'pixels');
+            hPosPx = get(h, 'Position');
+            set(h, 'Units', 'normalized');
+            hPosNorm = get(h, 'Position');
+            set(h, 'Units', hunits);
+
+            sx = hPosNorm(3) / hPosPx(3); % normalized per pixel, horizontal
+            sy = hPosNorm(4) / hPosPx(4); % normalized per pixel, vertical
+            pos = [hPosNorm(1) + (posPx(1) - hPosPx(1)) * sx, ...
+                   hPosNorm(2) + (posPx(2) - hPosPx(2)) * sy, ...
+                   posPx(3) * sx, posPx(4) * sy];
         end
 
         function pos = convertNormFigureUnitsToAxisDataUnits(axh, pos, treatAsSize)

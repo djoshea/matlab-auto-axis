@@ -56,7 +56,7 @@ else
     au.addXLabelAnchoredToDecorations('X Label');
     au.yUnits = 'mV';
     au.addAutoScaleBarY();
-%     au.axisMarginBottom = 1.8;
+    au.axisMarginBottom = 2.8;
 end
 % au.addYLabelAnchoredToAxis();
 % au.addXLabelAnchoredToAxis();
